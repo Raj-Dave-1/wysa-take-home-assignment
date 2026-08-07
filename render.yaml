@@ -12,7 +12,11 @@ services:
     plan: free
     region: singapore
     rootDir: backend
-    buildCommand: npm ci && npm run build
+    # Render sets NODE_ENV=production before `npm ci` runs, which makes npm
+    # skip devDependencies. We need them at build time (TypeScript + @types/*),
+    # so force include-dev, build, then prune back to prod-only for a smaller
+    # runtime image.
+    buildCommand: npm ci --include=dev && npm run build && npm prune --omit=dev
     # `db:migrate:prod` is idempotent (Drizzle tracks applied migrations) so
     # running it on every boot is safe and keeps schema in lockstep with code.
     startCommand: npm run db:migrate:prod && npm start

@@ -71,7 +71,8 @@ You have two options: **Blueprint** (one-click, uses [`render.yaml`](./render.ya
 ### Option B — Manual
 
 - Create a **Web Service** → Node runtime, root dir `backend/`.
-- Build command: `npm ci && npm run build`
+- Build command: `npm ci --include=dev && npm run build && npm prune --omit=dev`
+  _(Render sets `NODE_ENV=production` before install, which would otherwise skip TypeScript + `@types/*`. Include-dev for the build, prune after.)_
 - Start command: `npm run db:migrate:prod && npm start`
 - Health check path: `/health`
 - Copy all env vars from [`render.yaml`](./render.yaml) → Environment tab.
@@ -151,6 +152,8 @@ Then open your Vercel URL, log in with any seeded demo account, and walk through
 **CORS errors in the browser** — `CORS_ORIGIN` on Render doesn't match your Vercel URL exactly. It must be an exact origin match, not a wildcard subdomain.
 
 **Login works but everything else 401s** — token has `iss`/`aud` claims. If you rotated `JWT_ISSUER` or `JWT_AUDIENCE`, users need to re-login.
+
+**Build fails with `TS7016: Could not find a declaration file for module '…'`** — Render sets `NODE_ENV=production` before `npm ci` runs, so devDependencies (including `typescript` and all `@types/*`) get skipped. Build command must be `npm ci --include=dev && npm run build && npm prune --omit=dev` — install-with-dev, build, prune back. Already set in [`render.yaml`](./render.yaml).
 
 **Migrations fail on first deploy** — the pooled Neon URL sometimes rejects the initial CREATE TABLE burst. Switch to the direct (`-pooler` removed) URL temporarily just for the first migration, then switch back.
 
