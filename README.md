@@ -11,6 +11,10 @@ Take-home for the Associate Full-Stack Engineer role at Wysa. Patients hold and 
 
 > First request after ~15 min of inactivity takes about 30 s while Render's free tier wakes up. Subsequent requests are fast.
 
+## Recording (Optionally)
+
+I’ve recorded a short walkthrough of the application here: https://www.loom.com/share/00dc0f4ae8494020919e9eae5facc90b
+
 ### Demo credentials
 
 All accounts use password `123456`.
