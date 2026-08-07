@@ -85,7 +85,17 @@ const PATIENTS = [
   { email: "patient2@test.com", displayName: "Paul Patient" },
 ];
 
-async function upsertUser(email: string, name: string, role: "PATIENT" | "THERAPIST", passwordHash: string) {
+// Each call hashes with a fresh random salt — so even users who share a
+// password (all demo accounts use "123456") end up with different hashes in
+// password_hash. This is bcrypt's core design property; the previous version
+// hashed once and reused the string, which defeated the per-user salt.
+async function upsertUser(
+  email: string,
+  name: string,
+  role: "PATIENT" | "THERAPIST",
+  password: string,
+) {
+  const passwordHash = await bcrypt.hash(password, 10);
   const [u] = await db
     .insert(users)
     .values({ email, passwordHash, role, name })
@@ -122,20 +132,31 @@ async function ensureTherapistProfile(userId: string, displayName: string) {
   return inserted;
 }
 
+const DEMO_PASSWORD = "123456";
+
 async function main() {
   logger.info("Seeding database...");
-  const passwordHash = await bcrypt.hash("123456", 10);
 
   // Patients
   for (const p of PATIENTS) {
-    const u = await upsertUser(p.email, p.displayName, "PATIENT", passwordHash);
+    const u = await upsertUser(
+      p.email,
+      p.displayName,
+      "PATIENT",
+      DEMO_PASSWORD,
+    );
     await ensurePatientProfile(u.id, p.displayName);
   }
 
   // Therapists (with schedules)
   const summary: { name: string; id: string; rows: number }[] = [];
   for (const t of THERAPISTS) {
-    const u = await upsertUser(t.email, t.displayName, "THERAPIST", passwordHash);
+    const u = await upsertUser(
+      t.email,
+      t.displayName,
+      "THERAPIST",
+      DEMO_PASSWORD,
+    );
     const profile = await ensureTherapistProfile(u.id, t.displayName);
 
     // Wipe + replace the therapist's schedule (idempotent).
@@ -147,15 +168,19 @@ async function main() {
         dayOfWeek: s.dayOfWeek,
         startTime: s.startTime,
         endTime: s.endTime,
-      }))
+      })),
     );
 
-    summary.push({ name: t.displayName, id: profile.id, rows: t.schedule.length });
+    summary.push({
+      name: t.displayName,
+      id: profile.id,
+      rows: t.schedule.length,
+    });
   }
 
   logger.info(
     { patients: PATIENTS.length, therapists: summary },
-    "Seed complete"
+    "Seed complete",
   );
 
   await pool.end();
