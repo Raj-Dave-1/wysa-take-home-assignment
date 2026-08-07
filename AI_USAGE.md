@@ -46,16 +46,16 @@ Tehcnicals.MD and put all decision, technial things, algorithms etc there.
 
 This is when `TECHNICALS.md` was born. Forcing decisions into a file (instead of leaving them in chat history) is what kept me from re-litigating the same design questions later. Every subsequent phase updated that file.
 
-**Prompt 3 - Phase 4 test scenario correction (mid-implementation):**
+**Prompt 3 - mid-Phase 4, debugging a test:**
 
 ```
-The Phase 4 test scenario for "Patient B series conflicts with Patient A's 
-series" is failing with a 410 instead of the 409 SERIES_CONFLICT I want to 
-verify. Trace through what's happening - I think Patient B can't even get 
-a hold because Patient A's series has already booked all the slots.
+phase 4 test is returning 410 not the 409 SERIES_CONFLICT i want. 
+i think patient B can't even get a hold because patient A's series 
+booked all the candidate slots first. can you trace through and 
+check?
 ```
 
-I include this one because it's the kind of prompt that only works after a lot of shared context. Naming the exact hypothesis ("I think X is happening because Y") produced a targeted fix in one round. Saying "the test fails, fix it" would have led to a bunch of guessing.
+Including this one because naming the exact hypothesis produced a targeted fix in one round. "The test fails, fix it" would have wasted an hour on guessing.
 
 ## Technical decisions where AI shaped my thinking
 
@@ -69,11 +69,11 @@ Not everything was mine, and not everything was AI's. The ones where its suggest
 
 - **Server-side hold reverse-index** (`patient:hold:{patientId}`). To make "resume the countdown after a refresh" work and enforce "one hold per patient," we needed O(1) lookup by patient. Storing a reverse key with a matching TTL was a small idea with a big UX payoff.
 
-On top of that, AI handled the parts that were tedious rather than interesting - Zod schemas, Tailwind class incantations, pino redaction paths, the `render.yaml` Blueprint with correct env-var flags, the three-tier rate-limit factory. That's the "10× on boilerplate" part everyone talks about, and it's real.
+On top of that, AI handled the parts that were tedious rather than interesting - Zod schemas, Tailwind class incantations, pino redaction paths, the `render.yaml` Blueprint with correct env-var flags, the three-tier rate-limit factory. Boilerplate that would have taken me hours took minutes.
 
 ## Trade-offs I made explicitly
 
-- **Smoke tests over unit tests.** For a system whose whole point is cross-service correctness (Redis + Postgres + HTTP + time), unit tests against mocks would prove nothing. I invested in five phase-scoped smoke scripts instead. Trade-off: no fine-grained regression signal, but very high confidence that the actual system works.
+- **Smoke tests over unit tests.** For a system whose whole point is cross-service correctness (Redis + Postgres + HTTP + time), unit tests against mocks would prove nothing. I invested in end-to-end smoke tests that hit the real stack instead - `smoke-prod.mjs` is the one that ships. Trade-off: no fine-grained regression signal, but very high confidence that the actual system works.
 - **Node-cron over a real job scheduler.** Simpler, one dependency, guarded by Redlock so it doesn't double-run across replicas. Trade-off: won't fire when the Render free-tier service is sleeping. Documented, with a mitigation path (Render Cron Job + `X-Admin-Token`) in `DEPLOY.md`.
 - **JWT access tokens with no refresh flow.** Fine for a demo. A real system would want short-lived access tokens + a rotating refresh token.
 - **Availability computed on every request instead of cached.** For one therapist over a 7-day horizon, that's a handful of DB rows and a Redis MGET - negligible. At scale I'd cache the projection with a short TTL, invalidated on booking/hold events.
@@ -101,11 +101,6 @@ The lesson from this one is important: AI can generate a "test that verifies X" 
 - **Custom Postgres CHECK constraints for time ranges on schedules.** I preferred to enforce this in the service layer (with clear error messages) rather than at the DB (with generic constraint-violation messages that would then need translation). Both valid; I chose readability over defense-in-depth here.
 - **Pre-generated availability tables** (materialize every slot for every therapist for the next N days into its own table). The AI raised this as a scaling option. I said no - dynamic projection is simpler, easier to reason about, and the assignment doesn't need the scale. Would revisit at real load.
 
-## Ground rules
+## One rule I actually kept
 
-Two rules I kept, that are the reason I trust the resulting code:
-
-1. **Never merge a diff I don't understand.** Not "skimmed" - actually understand. If I couldn't explain why a piece of code was there, I asked before accepting.
-2. **The system, not just the tests, must run.** After every phase I logged into the running app and did the flow by hand. The date-format bug was caught this way; if I'd trusted the smoke tests alone I would have shipped a broken UI.
-
-If a reviewer asks me *why* the partial unique index has `WHERE status <> 'cancelled'` instead of just `(therapist_id, start_time)`, I can answer. That's the bar I set for using AI on production-adjacent code.
+Never merge a diff I don't understand. Not "skimmed" - actually understand. If I couldn't explain why a piece of code was there, I asked before accepting. That's why I can answer *why* the partial unique index has `WHERE status <> 'cancelled'` rather than just `(therapist_id, start_time)` without looking anything up.
