@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, type Dispatch, type SetStateAction } from "react";
 import { Spinner } from "../../components/Spinner";
 import { APP_TZ, dayjs, fmtRange, groupByDay } from "../../lib/time";
 import { toast } from "../../components/Toast";
@@ -22,7 +22,8 @@ const statusPill: Record<
     disabled: false,
   },
   held_by_me: {
-    className: "bg-brand-100 border-brand-500 text-brand-800 ring-2 ring-brand-500/20",
+    className:
+      "bg-brand-100 border-brand-500 text-brand-800 ring-2 ring-brand-500/20",
     label: "Your hold",
     disabled: true,
   },
@@ -32,23 +33,38 @@ const statusPill: Record<
     disabled: true,
   },
   booked: {
-    className: "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed",
+    className:
+      "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed",
     label: "Booked",
     disabled: true,
   },
 };
 
-export function AvailabilityView() {
+interface AvailabilityViewProps {
+  therapistId: string | undefined;
+  setTherapistId: Dispatch<SetStateAction<string | undefined>>;
+  rangeDays: number;
+  setRangeDays: Dispatch<SetStateAction<number>>;
+}
+
+export function AvailabilityView({
+  therapistId,
+  setTherapistId,
+  rangeDays,
+  setRangeDays,
+}: AvailabilityViewProps) {
   const { data: therapists, isLoading: therapistsLoading } = useTherapists();
-  const [therapistId, setTherapistId] = useState<string | undefined>();
-  const [rangeDays, setRangeDays] = useState(7);
 
   const effectiveTherapistId = therapistId ?? therapists?.[0]?.id;
 
   const from = useMemo(() => dayjs().tz(APP_TZ).format("YYYY-MM-DD"), []);
   const to = useMemo(
-    () => dayjs().tz(APP_TZ).add(rangeDays - 1, "day").format("YYYY-MM-DD"),
-    [rangeDays]
+    () =>
+      dayjs()
+        .tz(APP_TZ)
+        .add(rangeDays - 1, "day")
+        .format("YYYY-MM-DD"),
+    [rangeDays],
   );
 
   const {
@@ -64,7 +80,9 @@ export function AvailabilityView() {
 
   const onSlotClick = (slot: Slot) => {
     if (myHold) {
-      toast.info("You already have a slot on hold. Confirm or release it first.");
+      toast.info(
+        "You already have a slot on hold. Confirm or release it first.",
+      );
       return;
     }
     createHold.mutate(
@@ -74,8 +92,11 @@ export function AvailabilityView() {
         endTime: slot.endTime,
       },
       {
-        onError: (e) => toast.error(e instanceof ApiError ? e.message : "Could not hold slot"),
-      }
+        onError: (e) =>
+          toast.error(
+            e instanceof ApiError ? e.message : "Could not hold slot",
+          ),
+      },
     );
   };
 
@@ -83,7 +104,9 @@ export function AvailabilityView() {
     <div>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <label className="text-sm font-medium text-slate-700">Therapist</label>
+          <label className="text-sm font-medium text-slate-700">
+            Therapist
+          </label>
           {therapistsLoading ? (
             <Spinner className="h-4 w-4 text-slate-400" />
           ) : (

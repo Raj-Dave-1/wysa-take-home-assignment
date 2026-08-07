@@ -11,18 +11,24 @@ const tabs: { id: Tab; label: string }[] = [
 ];
 
 function initialTab(): Tab {
-  const h = typeof window !== "undefined" ? window.location.hash.replace("#", "") : "";
+  const h =
+    typeof window !== "undefined" ? window.location.hash.replace("#", "") : "";
   return h === "bookings" ? "bookings" : "availability";
 }
 
 export function PatientDashboard() {
   const [tab, setTab] = useState<Tab>(initialTab);
+  const [therapistId, setTherapistId] = useState<string | undefined>();
+  const [rangeDays, setRangeDays] = useState(7);
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-900">Your care schedule</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">
+          Your care schedule
+        </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Reserve a session with a therapist. Slots are held for up to 60 seconds while you confirm.
+          Reserve a session with a therapist. Slots are held for up to 60
+          seconds while you confirm.
         </p>
       </div>
 
@@ -47,7 +53,16 @@ export function PatientDashboard() {
         </nav>
       </div>
 
-      {tab === "availability" ? <AvailabilityView /> : <MyBookings />}
+      {tab === "availability" ? (
+        <AvailabilityView
+          therapistId={therapistId}
+          setTherapistId={setTherapistId}
+          rangeDays={rangeDays}
+          setRangeDays={setRangeDays}
+        />
+      ) : (
+        <MyBookings />
+      )}
     </div>
   );
 }
