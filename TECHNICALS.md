@@ -1151,6 +1151,184 @@ Rationale for each choice:
 
 Everything is $0 to run. The only free-tier limitation that matters for this app is Render's cold-start behavior — documented and mitigated (see below).
 
+### Who does what — a mental model
+
+Four services, three totally independent responsibilities. Understanding the split is the key to understanding what a `git push` does and doesn't touch.
+
+| Service | Type | What it stores | What it does on `git push` |
+|---|---|---|---|
+| **GitHub** | Source of truth | Code, `render.yaml`, `vercel.json` | Receives the push, fires webhooks |
+| **Vercel** | Compute (edge / CDN) | Nothing app-specific — just the built static assets | Rebuilds the frontend bundle, uploads to their CDN |
+| **Render** | Compute (long-lived Node process) | Nothing — 100% stateless container | Rebuilds the backend, runs migrations, boots the new process, cuts traffic over |
+| **Neon** | Postgres storage | All user data (users, appointments, series, schedules) | **Nothing.** DB is untouched. Only the code that talks to it changes. |
+| **Upstash** | Redis storage | Ephemeral state (holds, idempotency cache, distributed locks) | **Nothing.** Redis TTLs everything anyway, so it's naturally self-cleaning. |
+
+The two storage services (Neon, Upstash) never see your `git push` — they only receive traffic from the running backend. That's the crux of the "code redeploys, data persists" model.
+
+### Deploy lifecycle — what happens when you `git push`
+
+Concrete second-by-second sequence:
+
+```
+t=0     git push origin main
+t=1     GitHub receives the commit
+t=2     GitHub fires two webhooks in parallel:
+        ├─▶ Render:  "wysa-backend repo updated"
+        └─▶ Vercel:  "wysa repo updated"
+        (Neither service knows about or coordinates with the other.)
+
+──── Render branch (backend) ────
+t=5     Render clones the repo at the new commit
+t=8     Runs buildCommand from render.yaml:
+        npm ci --include=dev              (~40 s — installs deps)
+        npm run build                     (~10 s — tsc emits dist/)
+        npm prune --omit=dev              (~5 s — strips devDeps)
+t=70    Runs startCommand:
+        npm run db:migrate:prod           (Drizzle applies any new migrations
+                                           to Neon; no-op if already applied)
+        npm start                         (node dist/index.js — new process)
+t=75    New process binds to :10000, connects to Neon + Upstash,
+        schedules the cron, /health returns {"ok":true}
+t=76    Render flips the load balancer to the new instance
+t=77    Old instance receives SIGTERM → graceful shutdown → exits
+        Zero-downtime cutover complete.
+
+──── Vercel branch (frontend) ────
+t=5     Vercel clones the repo at the new commit
+t=8     Detects vercel.json → runs `vite build` from /frontend
+        VITE_API_URL is baked in from Vercel's env var at THIS moment
+        (frontend env vars are compile-time, not runtime)
+t=35    Uploads the built dist/ folder to Vercel's edge CDN
+t=40    Aliases the production URL to the new deployment
+        Old deployment stays around indefinitely (rollback-ready)
+```
+
+**Both services finish independently in ~1–2 min.** No coordination. If the backend deploy fails, the frontend still deploys — you'll get a working UI that can't talk to the API. Same in reverse. Rare in practice, easy to notice via smoke test.
+
+### What auto-updates vs what doesn't
+
+The single most important table in this doc for day-2 operations.
+
+| Thing you changed | Auto-deploys on `git push`? | Requires manual action |
+|---|---|---|
+| Backend source code (`backend/src/**`) | ✅ Render rebuilds and rolls out | — |
+| Frontend source code (`frontend/src/**`) | ✅ Vercel rebuilds and rolls out | — |
+| Backend dependencies (`backend/package.json`) | ✅ Included in `npm ci` on next build | — |
+| Frontend dependencies (`frontend/package.json`) | ✅ Included in Vercel's build | — |
+| Database **schema** (new Drizzle migration file) | ✅ `db:migrate:prod` runs on every backend boot | — |
+| Database **data** (seed changes) | ❌ Seed is never auto-run | Re-run `npm run db:seed` locally against Neon (see below) |
+| `render.yaml` (non-secret env vars, build command, region) | ✅ Render re-reads it on each build | — |
+| `vercel.json` (rewrites, headers, build settings) | ✅ Vercel re-reads it on each build | — |
+| **Secret** env vars (`DATABASE_URL`, `REDIS_URL`, `CORS_ORIGIN`, `ADMIN_TOKEN`, `JWT_SECRET`) | ❌ Never in git | Set once in Render dashboard → Environment tab |
+| Frontend env var (`VITE_API_URL`) | ❌ Baked in at build time | Set once in Vercel dashboard → Settings → Environment |
+| Neon database itself (provisioning, region, plan) | ❌ | Managed in Neon dashboard |
+| Upstash Redis itself | ❌ | Managed in Upstash dashboard |
+
+The two footguns hidden in this table:
+
+1. **Frontend env vars are compile-time.** If you change `VITE_API_URL` in Vercel, nothing happens until the **next** deploy. Trigger a redeploy from the Vercel dashboard (or push a no-op commit) after editing it.
+2. **Seed is intentionally not automatic.** Once therapists start editing their schedules through the UI, re-running the seed would silently wipe those edits. If you truly need a re-seed, either accept the loss or write a partial-seed script that only touches missing rows.
+
+### Monorepo caveat — both services rebuild on every push
+
+By default, Render and Vercel each rebuild on **every** push, even one that only touched the other service's folder. So editing a single line in `frontend/src/App.tsx` triggers a backend rebuild too (which is a no-op that still burns 60 seconds).
+
+That's fine for a demo (extra builds are free), but for production I'd add **path filters**:
+
+- Render: set `watchPaths: ["backend/**", "render.yaml"]` in `render.yaml`.
+- Vercel: add "Ignored Build Step" script that exits 0 when no `frontend/**` files changed.
+
+Not done here because the extra build noise is invisible and the fix is one line each when you actually need it.
+
+### Boot sequence on the backend (cold start)
+
+Useful to know when debugging "why is the first request slow?":
+
+```
+1. Render receives an inbound request to a sleeping instance
+2. Container spins up (~10 s — pulling image, starting Node process)
+3. node dist/db/migrate.js:
+     - Opens a Postgres connection
+     - Reads __drizzle_migrations table
+     - Applies pending migrations (usually zero)
+     - Exits
+4. node dist/index.js:
+     - Loads config (Zod validates all env vars — fails fast if any missing)
+     - Opens Postgres pool (5 connections, TLS)
+     - Opens Redis connection (TLS via rediss://)
+     - Schedules the nightly cron
+     - Binds to :10000
+     - Logs "Wysa backend listening"
+5. Render's health check hits /health → returns {"ok":true}
+6. Load balancer flips traffic to the instance
+7. First real request served
+```
+
+Total cold start: **~30 s** on Render free tier. **~2 s** on a paid always-on plan (steps 1–3 vanish; only the process needs to start).
+
+### Runtime request flow — one booking, end to end
+
+Sequence when a patient clicks "Confirm booking":
+
+```
+1. React makes POST https://wysa-backend.onrender.com/appointments
+   with Authorization: Bearer <jwt> and Idempotency-Key: <uuid>
+                            │
+                            ▼
+2. Vercel's CDN passes it through (Vercel only serves the static bundle;
+   API calls go direct to Render — same-origin isn't enforced, CORS handles it)
+                            │
+                            ▼
+3. Render load balancer routes to the running instance
+                            │
+                            ▼
+4. Express middleware chain: helmet → cors → pinoHttp (assigns req-id) →
+   rateLimit (per-user, checks Redis) → authenticate (verifies JWT) →
+   authorize("PATIENT") → validate(body via Zod)
+                            │
+                            ▼
+5. withIdempotency wrapper checks Redis for a cached response under
+   idem:<patientId>:<key>. Hit? Return the cached body. Miss? Continue.
+                            │
+                            ▼
+6. Acquire Redlock on booking:<therapistId>:<startTime>
+   (Redis SET NX EX across all API instances — mutual exclusion)
+                            │
+                            ▼
+7. Consume the hold atomically (Lua script in Redis)
+                            │
+                            ▼
+8. INSERT appointment (Postgres partial unique index is the final safety net —
+   if the Redlock ever failed, the DB would still reject a duplicate)
+                            │
+                            ▼
+9. Cache the response in Redis under the idempotency key (TTL: 24 h)
+                            │
+                            ▼
+10. Release Redlock
+                            │
+                            ▼
+11. Response flows back → React updates UI
+```
+
+Every hop is instrumented — check the Render logs and you'll see a single line per request with the req-id, path, status, and response time.
+
+### Re-seeding production data without shell access
+
+Render's free tier doesn't include Shell access, so the seed can't be run inside the container. Two workable paths:
+
+**Preferred — run seed locally against Neon:**
+```bash
+cd backend
+cp .env .env.local.bak
+# swap DATABASE_URL to the Neon pooled URL in .env
+npm run db:seed
+mv .env.local.bak .env
+```
+Same script, same idempotency guarantees. The seed connects to Neon over TLS just like the deployed backend does — there's nothing "prod" about running from your laptop except the destination URL.
+
+**Alternative — a guarded admin endpoint:** if you plan to re-seed frequently, adding `POST /admin/seed` (guarded by `X-Admin-Token`) is a ~15-line change. Not done today because occasional re-seeds via local shell are simpler and safer than shipping a mutating endpoint.
+
 ### Production-readiness changes
 
 #### 1. Postgres TLS auto-detection ([`backend/src/db/index.ts`](./backend/src/db/index.ts))
