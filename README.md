@@ -13,7 +13,7 @@ Take-home for the Associate Full-Stack Engineer role at Wysa. Patients hold and 
 
 ## Recording (Optionally)
 
-I’ve recorded a short walkthrough of the application here: https://www.loom.com/share/00dc0f4ae8494020919e9eae5facc90b
+I’ve recorded a short walkthrough of the application here:  https://www.loom.com/share/00dc0f4ae8494020919e9eae5facc90b
 
 ### Demo credentials
 
