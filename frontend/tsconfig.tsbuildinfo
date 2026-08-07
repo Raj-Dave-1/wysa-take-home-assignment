@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/layout.tsx","./src/components/protectedroute.tsx","./src/components/spinner.tsx","./src/lib/api.ts","./src/lib/queryclient.ts","./src/lib/time.ts","./src/routes/login.tsx","./src/routes/patientdashboard.tsx","./src/routes/therapistdashboard.tsx","./src/store/auth.ts"],"errors":true,"version":"5.9.3"}

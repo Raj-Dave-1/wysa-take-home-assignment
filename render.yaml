@@ -1,0 +1,59 @@
+# Render Blueprint — one-shot deploy of the Wysa backend.
+# Usage: from a fresh Render account, hit "New +" → "Blueprint" → point at
+# this repo. Render will provision the service with everything below, then
+# prompt for the secrets marked `sync: false`.
+#
+# Neon + Upstash are provisioned outside Render — this file only defines the
+# Node service that consumes them. See DEPLOY.md for the full walkthrough.
+services:
+  - type: web
+    name: wysa-backend
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    # `db:migrate:prod` is idempotent (Drizzle tracks applied migrations) so
+    # running it on every boot is safe and keeps schema in lockstep with code.
+    startCommand: npm run db:migrate:prod && npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: TRUST_PROXY
+        value: "1"
+      - key: APP_TIMEZONE
+        value: Asia/Kolkata
+      - key: HOLD_TTL_SECONDS
+        value: "60"
+      - key: RECURRING_HORIZON_DAYS
+        value: "90"
+      - key: AVAILABILITY_MAX_DAYS
+        value: "30"
+      - key: RATE_LIMIT_GLOBAL_PER_MIN
+        value: "300"
+      - key: RATE_LIMIT_AUTH_PER_MIN
+        value: "10"
+      - key: RATE_LIMIT_BOOKING_PER_MIN
+        value: "30"
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_ISSUER
+        value: wysa-api
+      - key: JWT_AUDIENCE
+        value: wysa-clients
+      # Auto-generated on first deploy.
+      - key: JWT_SECRET
+        generateValue: true
+      # Secrets — pasted into the Render dashboard after the Blueprint is created.
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false
