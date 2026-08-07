@@ -1,6 +1,6 @@
 # Technical Journal
 
-Living document. Every phase appends here — decisions, algorithms, trade-offs, and the reasoning behind each choice. The intent is that reading this alone gives a full picture of *why* the code looks the way it does, without having to read the code.
+Living document. Every phase appends here - decisions, algorithms, trade-offs, and the reasoning behind each choice. The intent is that reading this alone gives a full picture of *why* the code looks the way it does, without having to read the code.
 
 ---
 
@@ -10,14 +10,14 @@ Living document. Every phase appends here — decisions, algorithms, trade-offs,
 - [Global Design Decisions](#global-design-decisions)
 - [Local Development](#local-development)
 - [Troubleshooting](#troubleshooting)
-- [Phase 1 — Foundation](#phase-1--foundation)
-- [Phase 2 — Availability & Holds](#phase-2--availability--holds)
-- [Phase 3 — Booking (one-time)](#phase-3--booking-one-time)
-- [Phase 4 — Recurring Series](#phase-4--recurring-series)
-- [Phase 5 — Therapist Flows](#phase-5--therapist-flows)
-- [Phase 6 — Frontend](#phase-6--frontend)
-- [Phase 7 — Hardening](#phase-7--hardening)
-- [Phase 8 — Deployment](#phase-8--deployment)
+- [Phase 1 - Foundation](#phase-1--foundation)
+- [Phase 2 - Availability & Holds](#phase-2--availability--holds)
+- [Phase 3 - Booking (one-time)](#phase-3--booking-one-time)
+- [Phase 4 - Recurring Series](#phase-4--recurring-series)
+- [Phase 5 - Therapist Flows](#phase-5--therapist-flows)
+- [Phase 6 - Frontend](#phase-6--frontend)
+- [Phase 7 - Hardening](#phase-7--hardening)
+- [Phase 8 - Deployment](#phase-8--deployment)
 
 ---
 
@@ -45,7 +45,7 @@ Living document. Every phase appends here — decisions, algorithms, trade-offs,
 
 - **Postgres = source of truth.** All permanent state lives here; unique partial index is the last line of defense against double-booking.
 - **Redis = fast, ephemeral coordination.** Temporary holds, distributed locks (Redlock), and idempotency response cache. Never store durable state here.
-- **3 API clusters.** Every mutation must be safe under simultaneous execution on different nodes. The design assumes any request can arrive at any cluster, and uses Redis + DB atomicity — never in-process memory — for coordination.
+- **3 API clusters.** Every mutation must be safe under simultaneous execution on different nodes. The design assumes any request can arrive at any cluster, and uses Redis + DB atomicity - never in-process memory - for coordination.
 
 ---
 
@@ -60,7 +60,7 @@ Living document. Every phase appends here — decisions, algorithms, trade-offs,
 | Cache/locks | Redis 7 (local Docker, Upstash in prod) | `SET NX EX`, Lua scripting, Redlock |
 | Time zone | Single `APP_TIMEZONE` env (default `Asia/Kolkata`) | Assignment states users + therapists share a TZ; kept configurable so it isn't hardcoded |
 | Validation | zod at every boundary | Env schema, request bodies, request queries |
-| Auth | JWT (HS256, 7d expiry) via bcryptjs | Stateless — the 3-cluster architecture must not need session affinity |
+| Auth | JWT (HS256, 7d expiry) via bcryptjs | Stateless - the 3-cluster architecture must not need session affinity |
 | Idempotency (Phase 3) | `Idempotency-Key` header + Redis cache | Only way to make POST safe under retries + duplicate cluster delivery |
 | Concurrency (Phase 3) | Hold → Redlock → DB unique index | Three layers of defense; each catches a different failure mode |
 
@@ -87,7 +87,7 @@ The full stack runs on your laptop with three moving parts: **Docker (Postgres +
 | **5433** | Postgres (Docker → host) | `docker-compose.yml` (mapped from container's 5432 to avoid clashing with any local Postgres) |
 | **6379** | Redis (Docker → host) | `docker-compose.yml` |
 | **4000** | Backend API | `PORT` env in `backend/.env` |
-| **5173** | Frontend dev server | `frontend/vite.config.ts` (`strictPort: true` — deliberate fail-fast) |
+| **5173** | Frontend dev server | `frontend/vite.config.ts` (`strictPort: true` - deliberate fail-fast) |
 
 If any of these are already in use on your machine, either free them or override in the config files.
 
@@ -103,7 +103,7 @@ docker compose up -d
 # → healthcheck: `docker compose ps` should show both as "healthy" within ~10 s
 ```
 
-**Terminal A — backend:**
+**Terminal A - backend:**
 
 ```bash
 cd backend
@@ -114,7 +114,7 @@ npm run db:seed            # creates 2 patients + 2 therapists with distinct wee
 npm run dev                # tsx watch → http://localhost:4000
 ```
 
-**Terminal B — frontend:**
+**Terminal B - frontend:**
 
 ```bash
 cd frontend
@@ -132,7 +132,7 @@ Open http://localhost:5173 → click **Patient** on the login card → sign in. 
 curl http://localhost:4000/health
 # → {"ok":true,"ts":"2026-08-06T..."}
 
-# Point the prod smoke script at localhost — should print 14 checks passing
+# Point the prod smoke script at localhost - should print 14 checks passing
 API_URL=http://localhost:4000 node backend/scripts/smoke-prod.mjs
 ```
 
@@ -146,7 +146,7 @@ API_URL=http://localhost:4000 node backend/scripts/smoke-prod.mjs
 | Boot the compiled build | `npm start` |
 | Generate a new migration from schema changes | `npm run db:generate` |
 | Apply pending migrations | `npm run db:migrate` |
-| Re-seed (idempotent — safe to run any time) | `npm run db:seed` |
+| Re-seed (idempotent - safe to run any time) | `npm run db:seed` |
 | Open Drizzle Studio (visual DB browser) | `npm run db:studio` → https://local.drizzle.studio |
 
 ### Everyday commands (frontend)
@@ -191,7 +191,7 @@ SELECT * FROM schedules ORDER BY day_of_week;
 
 ```bash
 docker exec -it wysa_redis redis-cli
-> KEYS *                       # list all keys (fine for dev — never do this in prod)
+> KEYS *                       # list all keys (fine for dev - never do this in prod)
 > KEYS hold:*                  # active slot holds
 > KEYS patient:hold:*          # reverse index (one per patient)
 > KEYS idem:*                  # cached idempotent responses
@@ -221,7 +221,7 @@ docker exec wysa_postgres psql -U wysa -d wysa \
 # Wipe all Redis keys (holds, idempotency cache, distributed locks)
 docker exec wysa_redis redis-cli FLUSHDB
 
-# Or nuclear option — wipe everything including users, then reseed
+# Or nuclear option - wipe everything including users, then reseed
 docker compose down -v         # -v also removes the postgres volume
 docker compose up -d
 cd backend && npm run db:migrate && npm run db:seed
@@ -249,7 +249,7 @@ lsof -i :6379
 Docker Desktop isn't running. Open the app; wait for the whale icon in your menu bar to stop animating.
 
 **Symptom: local Postgres was running on 5432**
-This is why the compose file deliberately maps Docker Postgres to **5433** — to avoid clashing. `DATABASE_URL` in `backend/.env.example` already reflects `:5433`. If you have a local Postgres and it's causing confusion, stop it: `brew services stop postgresql` (macOS) or `sudo systemctl stop postgresql` (Linux).
+This is why the compose file deliberately maps Docker Postgres to **5433** - to avoid clashing. `DATABASE_URL` in `backend/.env.example` already reflects `:5433`. If you have a local Postgres and it's causing confusion, stop it: `brew services stop postgresql` (macOS) or `sudo systemctl stop postgresql` (Linux).
 
 **Symptom: `wysa_postgres` container flapping / unhealthy**
 ```bash
@@ -274,7 +274,7 @@ sudo chown -R $(whoami) ~/.npm ~/.node
 ### Backend dev server
 
 **Symptom: `EADDRINUSE :::4000`**
-Something else is on port 4000 — often a previous `npm run dev` that didn't cleanly exit.
+Something else is on port 4000 - often a previous `npm run dev` that didn't cleanly exit.
 ```bash
 lsof -i :4000
 kill -9 <PID>
@@ -292,8 +292,8 @@ psql "$(grep DATABASE_URL backend/.env | cut -d= -f2)"   # does the URL work?
 
 **Symptom: `Migration failed: relation "users" already exists`**
 Your DB has partial state from a previous run. Two options:
-1. Just re-seed — the seed script uses `ON CONFLICT DO UPDATE` and is safe to re-run.
-2. Full reset — see the "Resetting to a known-clean state" section above.
+1. Just re-seed - the seed script uses `ON CONFLICT DO UPDATE` and is safe to re-run.
+2. Full reset - see the "Resetting to a known-clean state" section above.
 
 **Symptom: `tsx: EPERM` or "Operation not permitted" during `db:migrate`**
 Rare macOS sandbox issue where `tsx` tries to create an IPC pipe in a restricted temp dir. Workaround: run outside restrictive shells (e.g. plain iTerm/Terminal, not a sandboxed IDE terminal).
@@ -308,7 +308,7 @@ kill -9 <PID>
 ```
 
 **Symptom: Login works, but the app immediately bounces back to the login page**
-JWT verification is failing — usually because you restarted the backend with a new `JWT_SECRET` and your browser has an old token in `localStorage`.
+JWT verification is failing - usually because you restarted the backend with a new `JWT_SECRET` and your browser has an old token in `localStorage`.
 ```javascript
 // In DevTools console:
 localStorage.clear();
@@ -316,7 +316,7 @@ location.reload();
 ```
 
 **Symptom: "No open slots" even though the therapist has a schedule**
-This was the actual Phase 6b bug — the availability API expects `YYYY-MM-DD` date strings, not full ISO timestamps. If you see it, verify:
+This was the actual Phase 6b bug - the availability API expects `YYYY-MM-DD` date strings, not full ISO timestamps. If you see it, verify:
 1. Open DevTools → Network → look at the `/availability` request → it should return 200 with a `slots` array. If it's 400, the query params are the wrong format.
 2. Verify the therapist actually has schedule rows for the requested day-of-week: `docker exec wysa_postgres psql -U wysa -d wysa -c "SELECT day_of_week, start_time, end_time FROM schedules ORDER BY day_of_week, start_time;"`
 
@@ -328,24 +328,24 @@ Server-side TTL has expired but the client didn't refetch. It should self-heal w
 
 ### Smoke tests
 
-**Symptom: `smoke-phase7.mjs` — auth limiter test fails with `allowed=20`**
+**Symptom: `smoke-phase7.mjs` - auth limiter test fails with `allowed=20`**
 The in-memory rate-limit counter carries state across test runs while the backend is up. Restart the backend (`Ctrl+C`, `npm run dev`) so the limiter starts fresh, then re-run the script.
 
-**Symptom: `smoke-phase3.mjs` — booking test returns `410 GONE`**
+**Symptom: `smoke-phase3.mjs` - booking test returns `410 GONE`**
 A leftover Redis hold from a previous run is blocking the test. `docker exec wysa_redis redis-cli FLUSHDB` and re-run.
 
-**Symptom: `smoke-phase4.mjs` — expected 409 SERIES_CONFLICT, got 410`**
-Same root cause as above — a prior test left Patient B holding a slot that the new scenario expects to be free. `FLUSHDB` + `TRUNCATE appointments, recurring_series` and re-run. (This exact scenario is what the fix in the Phase 4 test story is about — see [AI_USAGE.md](./AI_USAGE.md#4-phase-4-smoke-test-scenario-was-self-blocking).)
+**Symptom: `smoke-phase4.mjs` - expected 409 SERIES_CONFLICT, got 410`**
+Same root cause as above - a prior test left Patient B holding a slot that the new scenario expects to be free. `FLUSHDB` + `TRUNCATE appointments, recurring_series` and re-run. (This exact scenario is what the fix in the Phase 4 test story is about - see [AI_USAGE.md](./AI_USAGE.md#4-phase-4-smoke-test-scenario-was-self-blocking).)
 
 **Symptom: smoke script hangs**
 The backend probably crashed. Look at the `npm run dev` terminal for an unhandled error. If Redis or Postgres died, the request will hang until timeout.
 
 ### Concurrency edge cases
 
-**Symptom: two browsers, same account, both click the same slot — both see "your hold"**
-Expected — the second click is idempotent (they already had a hold). The `acquireHold` Lua script returns `-1` "you already have a hold" and the frontend treats that as a no-op.
+**Symptom: two browsers, same account, both click the same slot - both see "your hold"**
+Expected - the second click is idempotent (they already had a hold). The `acquireHold` Lua script returns `-1` "you already have a hold" and the frontend treats that as a no-op.
 
-**Symptom: two browsers, **different** accounts, both click the same slot — one gets 200, the other gets 409**
+**Symptom: two browsers, **different** accounts, both click the same slot - one gets 200, the other gets 409**
 Correct behavior. First wins, second is told "slot is held by someone else." The losing side should refresh availability to see the updated state.
 
 **Symptom: patient booked something but "My bookings" is empty**
@@ -353,28 +353,28 @@ React Query caching. The booking mutation invalidates the appointments query, bu
 
 ### General debugging tactics
 
-- **Every response has an `X-Request-ID` header.** If a client hits a bug, grab that header value and grep the backend logs — pino always includes it as `reqId`.
+- **Every response has an `X-Request-ID` header.** If a client hits a bug, grab that header value and grep the backend logs - pino always includes it as `reqId`.
 - **Log level:** `LOG_LEVEL=debug npm run dev` for more verbose output.
 - **Structured logs:** every log line is JSON. Pipe through `jq` or `pino-pretty` to make them human-readable.
-- **Drizzle Studio:** `npm run db:studio` opens a visual browser at https://local.drizzle.studio — good for eyeballing the state after a bug.
+- **Drizzle Studio:** `npm run db:studio` opens a visual browser at https://local.drizzle.studio - good for eyeballing the state after a bug.
 - **When in doubt, reset:** the seed is idempotent and the smoke tests are the fastest way to prove the system is fundamentally healthy after a reset.
 
 For deployment-specific troubleshooting (Neon, Upstash, Render, Vercel), see [DEPLOY.md → Troubleshooting](./DEPLOY.md#troubleshooting).
 
 ---
 
-## Phase 1 — Foundation
+## Phase 1 - Foundation
 
 ### Goals
 1. Repo scaffolding for a monorepo (backend + frontend, deployed independently).
 2. Local dev infra via Docker.
-3. Full DB schema up front — including tables for Phases 3+4 — so we only migrate once.
+3. Full DB schema up front - including tables for Phases 3+4 - so we only migrate once.
 4. Seeded users + therapist + assignment's exact 15-row weekly schedule.
 5. JWT auth wired to a working `/auth/login` + `authenticate` / `authorize(role)` middleware.
 
 ### DB Schema
 
-Seven objects — enums, five tables, one partial unique index. Full definitions in [`backend/src/db/schema.ts`](./backend/src/db/schema.ts).
+Seven objects - enums, five tables, one partial unique index. Full definitions in [`backend/src/db/schema.ts`](./backend/src/db/schema.ts).
 
 - `user_role` enum: `PATIENT | THERAPIST`
 - `appointment_status` enum: `scheduled | completed | no_show | cancelled`
@@ -383,10 +383,10 @@ Seven objects — enums, five tables, one partial unique index. Full definitions
 - `patients(id, user_id UNIQUE, display_name, created_at)`
 - `therapists(id, user_id UNIQUE, display_name, created_at)`
 - `schedules(id, therapist_id, day_of_week 0..6, start_time TIME, end_time TIME, created_at)`
-  - Slot start/end stored as **time-of-day**, not full datetimes. This is what makes "update schedule doesn't affect existing bookings" trivially correct — the schedule is a *template* consulted at query time, never joined to appointments.
+  - Slot start/end stored as **time-of-day**, not full datetimes. This is what makes "update schedule doesn't affect existing bookings" trivially correct - the schedule is a *template* consulted at query time, never joined to appointments.
 - `recurring_series(id, patient_id, therapist_id, frequency, anchor_start TIMESTAMPTZ, anchor_end TIMESTAMPTZ, end_date TIMESTAMPTZ NULLABLE, materialized_through TIMESTAMPTZ, active, created_at)`
   - `anchor_*` captures the first occurrence in absolute UTC. Every future occurrence is a *pure function* of the anchor + frequency, so we don't have to keep re-deriving from the weekly template.
-  - `materialized_through` is the rolling horizon — the extension cron generates new appointments beyond this point.
+  - `materialized_through` is the rolling horizon - the extension cron generates new appointments beyond this point.
 - `appointments(id, patient_id, therapist_id, start_time TIMESTAMPTZ, end_time TIMESTAMPTZ, status, series_id NULLABLE, created_at, updated_at)`
 
 ### Key index (the one that matters)
@@ -399,13 +399,13 @@ CREATE UNIQUE INDEX "appt_therapist_start_active_uq"
 
 **Why partial (`WHERE status <> 'cancelled'`)?** Because a cancelled appointment must not block a fresh booking at the same slot. Without the `WHERE`, cancelling and rebooking would fail with a duplicate-key error.
 
-**Why is this the most important line in the whole codebase?** It is the single guarantee that no two active appointments can occupy the same `(therapist, start_time)` — no matter how the application code fails, races, or is redeployed. Redis holds and Redlock reduce contention and give clean error responses; this index is what makes correctness a *property of the system*, not of the code.
+**Why is this the most important line in the whole codebase?** It is the single guarantee that no two active appointments can occupy the same `(therapist, start_time)` - no matter how the application code fails, races, or is redeployed. Redis holds and Redlock reduce contention and give clean error responses; this index is what makes correctness a *property of the system*, not of the code.
 
 ### Auth flow
 
 1. `POST /auth/login` → verify email/password (bcrypt), look up user's profile row (`patients` or `therapists`), sign JWT with payload `{ sub, role, profileId, email, name }`.
 2. `authenticate` middleware reads `Authorization: Bearer <jwt>`, verifies, attaches `req.user`.
-3. `authorize("PATIENT" | ...)` — role guard. Reused on every downstream mutation.
+3. `authorize("PATIENT" | ...)` - role guard. Reused on every downstream mutation.
 
 **Why `profileId` in the JWT?** Every downstream handler needs "which patient/therapist is acting?" not "which user account?". Baking it into the token saves a DB lookup per request. Trade-off: tokens are stale after profile changes, but profiles are effectively immutable in this system.
 
@@ -414,19 +414,19 @@ CREATE UNIQUE INDEX "appt_therapist_start_active_uq"
 Idempotent (`onConflictDoUpdate`), safe to re-run any time. Wipes and re-inserts each therapist's schedule on every run so schema drift can't leave stale rows.
 
 Seeds:
-- Two patients: `patient@test.com` (Priya) and `patient2@test.com` (Paul) — cross-patient conflict tests work out of the box.
+- Two patients: `patient@test.com` (Priya) and `patient2@test.com` (Paul) - cross-patient conflict tests work out of the box.
 - Two therapists with **complementary** schedules so patients see a real choice:
-  - `therapist@test.com` — **Dr. Tanuj Therapist** (15 slots) — Mon/Tue/Thu/Fri afternoons, matches the assignment's example table verbatim.
-  - `therapist2@test.com` — **Dr. Maya Mehta** (16 slots) — early mornings on Mon, the whole of Wed, Fri evenings, and both weekend mornings. Deliberately covers days/times Tanuj doesn't so smoke tests and demo flows can compare two independent availability projections.
+  - `therapist@test.com` - **Dr. Tanuj Therapist** (15 slots) - Mon/Tue/Thu/Fri afternoons, matches the assignment's example table verbatim.
+  - `therapist2@test.com` - **Dr. Maya Mehta** (16 slots) - early mornings on Mon, the whole of Wed, Fri evenings, and both weekend mornings. Deliberately covers days/times Tanuj doesn't so smoke tests and demo flows can compare two independent availability projections.
 
 All accounts use password `123456`.
 
 ---
 
-## Phase 2 — Availability & Holds
+## Phase 2 - Availability & Holds
 
 ### Goals
-1. Dynamically derive slots from the schedule — never pre-seed.
+1. Dynamically derive slots from the schedule - never pre-seed.
 2. Let a patient hold a slot for a configurable TTL (default 60s), atomically across the 3 clusters.
 3. Ensure the hold survives a page refresh.
 4. Return per-slot status so the UI can render `available | held_by_me | held_by_other | booked`.
@@ -460,14 +460,14 @@ inputs:  therapistId, fromDate, toDate (YYYY-MM-DD in APP_TZ),
 
 Complexity: **1 DB query + 1 Redis MGET** regardless of range size, plus one linear pass over candidates.
 
-**Why not derive slots per-request from the DB using a generate_series query?** Two reasons: (a) time-of-day + day-of-week logic on the client's timezone is much cleaner in JS than PL/pgSQL; (b) the schedule table has ~15 rows for a full week — the work is trivially cheap in memory.
+**Why not derive slots per-request from the DB using a generate_series query?** Two reasons: (a) time-of-day + day-of-week logic on the client's timezone is much cleaner in JS than PL/pgSQL; (b) the schedule table has ~15 rows for a full week - the work is trivially cheap in memory.
 
 ### Hold semantics
 
 Design invariants:
 - **A patient may hold at most one slot at a time.** Simplifies UX ("Hold → confirm → done") and makes the reverse index (`patient:hold:{patientId}`) a scalar, not a set.
 - **A slot may be held by at most one patient at a time.** Enforced by `SET NX`.
-- **Both invariants must hold atomically.** Enforced via Lua script — see below.
+- **Both invariants must hold atomically.** Enforced via Lua script - see below.
 
 ### Redis key layout
 
@@ -482,18 +482,18 @@ Design invariants:
 
 Three custom Redis commands (registered via `redis.defineCommand`) in [`backend/src/redis.ts`](./backend/src/redis.ts):
 
-**`acquireHold(slotKey, patientKey, patientId, ttl, reverseValue)`** — the entire hold acquisition is one atomic script:
+**`acquireHold(slotKey, patientKey, patientId, ttl, reverseValue)`** - the entire hold acquisition is one atomic script:
 ```
 if EXISTS(patientKey)                  return -1   # patient already holds something
 if SET NX EX slotKey <patientId> fails return  0   # slot already held by someone else
 SET EX patientKey <reverseValue>
                                        return  1   # acquired
 ```
-Doing this without Lua would require two round-trips and expose the window where a slot key was set but the reverse key wasn't — a partial state we'd have to clean up.
+Doing this without Lua would require two round-trips and expose the window where a slot key was set but the reverse key wasn't - a partial state we'd have to clean up.
 
-**`releaseHold(slotKey, patientKey, patientId)`** — protects against the "expired-then-reused" race: the caller must still be the owner of the slot key at the moment of deletion. If TTL expired and another patient grabbed the slot, a late DELETE from the original holder is a no-op.
+**`releaseHold(slotKey, patientKey, patientId)`** - protects against the "expired-then-reused" race: the caller must still be the owner of the slot key at the moment of deletion. If TTL expired and another patient grabbed the slot, a late DELETE from the original holder is a no-op.
 
-**`consumeHold(slotKey, patientKey, patientId)`** — semantically the same as release, but named separately because it means "convert hold → booking" in Phase 3. Return value drives the 410 Gone response when the hold has already expired.
+**`consumeHold(slotKey, patientKey, patientId)`** - semantically the same as release, but named separately because it means "convert hold → booking" in Phase 3. Return value drives the 410 Gone response when the hold has already expired.
 
 ### Availability × Holds cross-cutting behavior
 
@@ -504,7 +504,7 @@ Doing this without Lua would require two round-trips and expose the window where
 
 ### Test coverage (Phase 2)
 
-`backend/scripts/smoke-phase2.mjs` — 16 assertions across:
+`backend/scripts/smoke-phase2.mjs` - 16 assertions across:
 - login for all 3 personas
 - list therapists + read schedule
 - default 7-day availability window
@@ -519,11 +519,11 @@ Doing this without Lua would require two round-trips and expose the window where
 
 ---
 
-## Phase 3 — Booking (one-time)
+## Phase 3 - Booking (one-time)
 
 ### Goals
 1. Confirm a held slot as a scheduled appointment, safely under concurrent load across 3 clusters.
-2. Guarantee **idempotency** — retries, double-clicks, and duplicate cluster delivery must never produce two rows.
+2. Guarantee **idempotency** - retries, double-clicks, and duplicate cluster delivery must never produce two rows.
 3. Provide the primitives for Phase 4 (recurring): the same booking logic will be reused per occurrence.
 4. Cancel a one-time appointment.
 
@@ -535,7 +535,7 @@ Every layer independently prevents the same failure. If any two fail, the third 
 |---|---|---|---|
 | 1 | **Hold ownership + Lua `consumeHold`** | Redis | 99% of races: only the patient who holds the slot can book it, and consuming is atomic. If the hold expired or belongs to someone else, `consumeHold` returns `0` → 410 Gone. |
 | 2 | **Redlock** on `lock:appt:{therapist}:{startTime}` | Redis | Two API workers on different clusters processing simultaneously; also lets us return a clean 409 instead of a raw SQL error. |
-| 3 | **Partial unique index** `(therapist_id, start_time) WHERE status<>'cancelled'` | Postgres | Any residual race — clock skew on Redlock, an assumption breaking, a code path we didn't foresee. Postgres throws `23505`; we catch it and map to 409. |
+| 3 | **Partial unique index** `(therapist_id, start_time) WHERE status<>'cancelled'` | Postgres | Any residual race - clock skew on Redlock, an assumption breaking, a code path we didn't foresee. Postgres throws `23505`; we catch it and map to 409. |
 
 The Phase 3 smoke run **passed 20/20 assertions without ever hitting layer 3**. The DB constraint remains present as an invariant, not a hot path.
 
@@ -563,24 +563,24 @@ POST /appointments  (Idempotency-Key required)
 ### Idempotency implementation ([`backend/src/lib/idempotency.ts`](./backend/src/lib/idempotency.ts))
 
 - **Header contract**: `Idempotency-Key: <8..128 char string>` required on `POST /appointments`. Missing → 400.
-- **Cache shape**: `{ status, body }` — the *full* response is stored, so retries see the exact same status + body (including error responses). This matters: if the first attempt returned 409, the retry should also return 409, not silently succeed.
+- **Cache shape**: `{ status, body }` - the *full* response is stored, so retries see the exact same status + body (including error responses). This matters: if the first attempt returned 409, the retry should also return 409, not silently succeed.
 - **Double-check-under-lock**: fast path checks the cache without a lock (99% of the time it either hits or is a fresh key). If it misses, we take a Redlock so only one of the 3 clusters actually runs the handler for this key; the other clusters wait for the lock, then read the fresh cache entry on their retry.
-- **Lock TTL 15s** vs **book lock TTL 8s** — the outer idem lock outlives the inner book lock so the sequence completes cleanly.
-- **Response reuse via `Idempotent-Replay: true` header** — clients can detect that a response came from the cache (useful for the frontend to skip UI animations on retry).
+- **Lock TTL 15s** vs **book lock TTL 8s** - the outer idem lock outlives the inner book lock so the sequence completes cleanly.
+- **Response reuse via `Idempotent-Replay: true` header** - clients can detect that a response came from the cache (useful for the frontend to skip UI animations on retry).
 
 ### Distributed lock choice: `redlock` v5
 
-- Even with a single Redis node (our setup), Redlock still gives correct mutual exclusion across the 3 stateless API clusters — which is exactly the concurrency case the assignment cares about.
+- Even with a single Redis node (our setup), Redlock still gives correct mutual exclusion across the 3 stateless API clusters - which is exactly the concurrency case the assignment cares about.
 - Configuration:
   - `retryCount: 8`, `retryDelay: 100ms`, `retryJitter: 100ms` → up to ~800ms of contention wait before surfacing a lock error. Booking is interactive, so bounded tail latency matters.
-  - `driftFactor: 0.01` — Redlock's official recommendation for accounting for clock skew.
-- The known theoretical criticism of Redlock (Kleppmann's fencing token argument) is **not a concern here** because we have a downstream `UNIQUE` constraint on Postgres — even if Redlock were somehow bypassed, the DB rejects duplicates. This is the classic "lock as a performance optimization, DB constraint as the correctness guarantee" pattern.
+  - `driftFactor: 0.01` - Redlock's official recommendation for accounting for clock skew.
+- The known theoretical criticism of Redlock (Kleppmann's fencing token argument) is **not a concern here** because we have a downstream `UNIQUE` constraint on Postgres - even if Redlock were somehow bypassed, the DB rejects duplicates. This is the classic "lock as a performance optimization, DB constraint as the correctness guarantee" pattern.
 
 ### Cancellation semantics
 
-- `DELETE /appointments/:id` — patient cancels their own scheduled appointment.
+- `DELETE /appointments/:id` - patient cancels their own scheduled appointment.
 - Guards: `403` if not owner; `400` if already `completed`/`no_show`; `400` if `start_time` has passed.
-- Sets `status = 'cancelled'` — row remains for audit. Because the unique index is partial (`WHERE status <> 'cancelled'`), the slot is immediately re-bookable.
+- Sets `status = 'cancelled'` - row remains for audit. Because the unique index is partial (`WHERE status <> 'cancelled'`), the slot is immediately re-bookable.
 - **Single-instance cancel of a recurring appointment** works with this same endpoint (row-level update, `series_id` untouched). Whole-series cancel is a separate Phase 4 endpoint.
 
 ### Interesting edge cases handled
@@ -593,29 +593,29 @@ POST /appointments  (Idempotency-Key required)
 
 ### Test coverage (Phase 3)
 
-`backend/scripts/smoke-phase3.mjs` — 20 assertions across 5 scenarios:
+`backend/scripts/smoke-phase3.mjs` - 20 assertions across 5 scenarios:
 
-1. **Happy path + idempotency** — book, replay with same key returns identical id + `Idempotent-Replay: true`. Missing key → 400.
-2. **Cross-patient race** — two patients try same slot simultaneously (both hold + book concurrently). Exactly one 201, one 409.
-3. **Double-click same key** — two parallel requests with same idempotency key on the same fresh hold → both return the same appointment id, DB has exactly one row.
-4. **Cancel** — cancel own appointment (200), slot becomes `available` again in `/availability`. Cancel someone else's → 403.
+1. **Happy path + idempotency** - book, replay with same key returns identical id + `Idempotent-Replay: true`. Missing key → 400.
+2. **Cross-patient race** - two patients try same slot simultaneously (both hold + book concurrently). Exactly one 201, one 409.
+3. **Double-click same key** - two parallel requests with same idempotency key on the same fresh hold → both return the same appointment id, DB has exactly one row.
+4. **Cancel** - cancel own appointment (200), slot becomes `available` again in `/availability`. Cancel someone else's → 403.
 5. **Confirm without hold** → 410 Gone.
 
 ---
 
-_Phase 4 will layer on top of `bookOneTimeAppointment` for recurring — the per-occurrence booking uses the same protection stack, wrapped in a series-level transaction and conflict pre-check._
+_Phase 4 will layer on top of `bookOneTimeAppointment` for recurring - the per-occurrence booking uses the same protection stack, wrapped in a series-level transaction and conflict pre-check._
 
 ---
 
-## Phase 4 — Recurring Series
+## Phase 4 - Recurring Series
 
 ### Goals
 1. Accept `POST /appointments` with a `recurrence` block to create a full series in one shot.
 2. Support `daily | weekly | biweekly | monthly` with a rolling 90-day materialization horizon and optional patient-supplied `endDate`.
-3. Pre-check every occurrence for conflicts (existing appointments **or** active holds by another patient) and reject atomically if any conflict — no partial series.
+3. Pre-check every occurrence for conflicts (existing appointments **or** active holds by another patient) and reject atomically if any conflict - no partial series.
 4. Two cancel semantics:
-   - **Single instance cancel** — leaves the series active; other occurrences untouched.
-   - **Whole-series cancel** — flags every future non-cancelled instance in one SQL statement + marks the series inactive.
+   - **Single instance cancel** - leaves the series active; other occurrences untouched.
+   - **Whole-series cancel** - flags every future non-cancelled instance in one SQL statement + marks the series inactive.
 5. Idempotent nightly cron that extends every active series so the horizon stays full without generating infinite rows up-front.
 
 ### Occurrence enumeration ([`backend/src/series/frequency.ts`](./backend/src/series/frequency.ts))
@@ -638,18 +638,18 @@ Frequencies map to dayjs units:
 - `biweekly` → `anchor.add(i * 2, 'week')`
 - `monthly` → `anchor.add(i, 'month')`
 
-`MAX_ITER = 4000` is a safety cap in case of pathological input (should never be hit — 90d / minimum daily = 90 occurrences).
+`MAX_ITER = 4000` is a safety cap in case of pathological input (should never be hit - 90d / minimum daily = 90 occurrences).
 
 ### Schedule-alignment filter
 
 Not every generated occurrence is bookable. Concretely:
-- **Weekly / biweekly** — same day-of-week + time-of-day as the anchor → always aligned if the anchor is.
-- **Daily** — may land on Wednesday or the weekend, when the seeded therapist doesn't work. Skip those.
-- **Monthly** — may land on any day-of-week. Skip if it doesn't match a schedule row.
+- **Weekly / biweekly** - same day-of-week + time-of-day as the anchor → always aligned if the anchor is.
+- **Daily** - may land on Wednesday or the weekend, when the seeded therapist doesn't work. Skip those.
+- **Monthly** - may land on any day-of-week. Skip if it doesn't match a schedule row.
 
 Implementation: `occurrenceMatchesSchedule(occ, windows)` looks for any schedule row where `dayOfWeek` matches and the (start, end) time-of-day in `APP_TZ` matches exactly. Anything else is filtered out and counted as `skipped` in the response, so the UI can show "N booked, M skipped due to schedule."
 
-Verified in the Phase 4 smoke test: a `daily` series anchored Thursday 9:00 UTC produced **38 booked, 52 skipped** over 90 days — exactly the expected count given the seeded Mon/Tue/Thu/Fri template.
+Verified in the Phase 4 smoke test: a `daily` series anchored Thursday 9:00 UTC produced **38 booked, 52 skipped** over 90 days - exactly the expected count given the seeded Mon/Tue/Thu/Fri template.
 
 ### Conflict pre-check (batched)
 
@@ -664,8 +664,8 @@ const [booked, holdValues] = await Promise.all([
 ]);
 ```
 
-- **One DB query** — `inArray` maps to `WHERE start_time = ANY($1::timestamptz[])`, so it's a single index lookup.
-- **One Redis round-trip** — `MGET` across all occurrence hold keys.
+- **One DB query** - `inArray` maps to `WHERE start_time = ANY($1::timestamptz[])`, so it's a single index lookup.
+- **One Redis round-trip** - `MGET` across all occurrence hold keys.
 - A hold key owned by the requesting patient (unlikely except for the anchor itself) is *not* counted as a conflict; only other patients count.
 - Conflicts are returned in the 409 response body under `error.details.conflicts` so the client can highlight which dates are blocked. Verified in the smoke test.
 
@@ -684,7 +684,7 @@ POST /appointments  { recurrence: {...} }
 │         │    ├── INSERT recurring_series RETURNING *
 │         │    ├── INSERT appointments × N with series_id
 │         │    └── on 23505 → rollback → 409 (race that slipped past pre-check)
-│         └── best-effort consumeHold(anchor)  (harmless if it fails — TTL cleans up)
+│         └── best-effort consumeHold(anchor)  (harmless if it fails - TTL cleans up)
 └── cache { status, body }  (24h TTL)
 ```
 
@@ -696,13 +696,13 @@ Deliberately *not* using per-slot Redlock on all N occurrences. Rationale:
 - The outer `withIdempotency` Redlock already prevents same-patient duplicate submissions.
 - The DB unique index still catches any cross-patient race that beats the pre-check.
 
-If the pre-check passes but the transaction fails with `23505`, we return a clean 409 to the caller and they can retry — same UX as a "series conflict" 409, just triggered by the DB rather than the pre-check.
+If the pre-check passes but the transaction fails with `23505`, we return a clean 409 to the caller and they can retry - same UX as a "series conflict" 409, just triggered by the DB rather than the pre-check.
 
 ### Cancel semantics
 
-**Single instance** — the existing `DELETE /appointments/:id` from Phase 3 works unchanged. It sets `status = 'cancelled'`, leaves `series_id` in place. The series stays active. Verified.
+**Single instance** - the existing `DELETE /appointments/:id` from Phase 3 works unchanged. It sets `status = 'cancelled'`, leaves `series_id` in place. The series stays active. Verified.
 
-**Whole series** — `DELETE /series/:id`:
+**Whole series** - `DELETE /series/:id`:
 
 ```sql
 UPDATE appointments
@@ -714,29 +714,29 @@ WHERE series_id = $1
 UPDATE recurring_series SET active = false WHERE id = $1;
 ```
 
-- Only future non-terminal appointments are affected — past `completed`/`no_show`/already-cancelled rows are preserved for audit.
+- Only future non-terminal appointments are affected - past `completed`/`no_show`/already-cancelled rows are preserved for audit.
 - Setting `active = false` prevents the extension cron from re-materializing new occurrences.
 
 ### Extension cron ([`backend/src/series/cron.ts`](./backend/src/series/cron.ts))
 
 - Schedule: `0 2 * * *` (2 AM daily in the server TZ).
-- **Guarded by a Redlock** on `cron:extend-series` — even though all 3 clusters run the same schedule, only one holds the lock and does the work per night. The other two log "another cluster owns it" and no-op.
-- For each active series: enumerate new occurrences beyond `materialized_through`, filter by schedule, insert (catching `23505` and skipping conflicts — cron must not fail loudly on user-caused edge cases).
+- **Guarded by a Redlock** on `cron:extend-series` - even though all 3 clusters run the same schedule, only one holds the lock and does the work per night. The other two log "another cluster owns it" and no-op.
+- For each active series: enumerate new occurrences beyond `materialized_through`, filter by schedule, insert (catching `23505` and skipping conflicts - cron must not fail loudly on user-caused edge cases).
 - Idempotent by design: re-running immediately produces 0 new rows. Verified in the smoke test (`extend1.appointmentsCreated == 0` and `extend2.appointmentsCreated == 0` once horizon is full).
 - Also exposed as `POST /series/extend` for manual triggering (used by the smoke test; useful in ops).
 
 ### Non-obvious edge cases handled
 
-1. **Monthly clamping** — Jan 31 monthly → Feb 28, Mar 31, Apr 30 (dayjs handles this correctly via anchor-relative addition).
-2. **Anchor doesn't align to schedule** — cannot happen because Phase 2's hold acquisition already validated the anchor. We still assert `hasAnchor` in the valid list as a belt-and-braces check.
-3. **`endDate` before horizon** — series stops early. Extension cron respects `endDate` and never materializes past it.
-4. **Extension cron across 3 clusters** — Redlock on `cron:extend-series` guarantees exactly one runs per night.
-5. **Series cancel doesn't undo past completed/no_show** — the `NOT IN (completed, no_show)` filter preserves audit history.
-6. **Pre-check race** — DB unique index is the safety net; unique_violation rolls back the whole transaction cleanly.
+1. **Monthly clamping** - Jan 31 monthly → Feb 28, Mar 31, Apr 30 (dayjs handles this correctly via anchor-relative addition).
+2. **Anchor doesn't align to schedule** - cannot happen because Phase 2's hold acquisition already validated the anchor. We still assert `hasAnchor` in the valid list as a belt-and-braces check.
+3. **`endDate` before horizon** - series stops early. Extension cron respects `endDate` and never materializes past it.
+4. **Extension cron across 3 clusters** - Redlock on `cron:extend-series` guarantees exactly one runs per night.
+5. **Series cancel doesn't undo past completed/no_show** - the `NOT IN (completed, no_show)` filter preserves audit history.
+6. **Pre-check race** - DB unique index is the safety net; unique_violation rolls back the whole transaction cleanly.
 
 ### Test coverage (Phase 4)
 
-`backend/scripts/smoke-phase4.mjs` — 7 scenarios, ~20 assertions:
+`backend/scripts/smoke-phase4.mjs` - 7 scenarios, ~20 assertions:
 
 0. **Setup for conflict**: B books a one-time exactly 7 days after A's anchor.
 1. **Happy-path weekly**: A books weekly → 13 occurrences, same `series_id`, all 7-day gaps.
@@ -749,15 +749,15 @@ UPDATE recurring_series SET active = false WHERE id = $1;
 
 ---
 
-_Phase 5 will add the therapist side: reading assigned appointments, window-guarded status updates, and schedule updates that (per the assignment) MUST NOT affect existing bookings — which is trivially true given the schedule-as-template design from Phase 1._
+_Phase 5 will add the therapist side: reading assigned appointments, window-guarded status updates, and schedule updates that (per the assignment) MUST NOT affect existing bookings - which is trivially true given the schedule-as-template design from Phase 1._
 
 ---
 
-## Phase 5 — Therapist Flows
+## Phase 5 - Therapist Flows
 
 ### Goals
 1. Therapist can list appointments assigned to them, joined with patient name.
-2. Therapist can transition an appointment to `completed | no_show | cancelled` — but **only during the appointment window** (per assignment).
+2. Therapist can transition an appointment to `completed | no_show | cancelled` - but **only during the appointment window** (per assignment).
 3. Therapist can update their weekly schedule, and **existing appointments MUST be unaffected**.
 
 ### New routes
@@ -767,9 +767,9 @@ _Phase 5 will add the therapist side: reading assigned appointments, window-guar
 | `GET` | `/therapist/appointments?from=&to=` | THERAPIST | Assigned appointments joined with patient name |
 | `GET` | `/therapist/schedule` | THERAPIST | Read own schedule |
 | `PUT` | `/therapist/schedule` | THERAPIST | Replace entire weekly template |
-| `PATCH` | `/appointments/:id/status` | THERAPIST | `completed \| no_show \| cancelled` — window-guarded |
+| `PATCH` | `/appointments/:id/status` | THERAPIST | `completed \| no_show \| cancelled` - window-guarded |
 
-Route name `/therapist` (singular) intentionally distinct from `/therapists` (plural, patient-facing list) to avoid confusion — one is "the acting therapist's own routes", the other is "look up any therapist".
+Route name `/therapist` (singular) intentionally distinct from `/therapists` (plural, patient-facing list) to avoid confusion - one is "the acting therapist's own routes", the other is "look up any therapist".
 
 ### Status update rules ([`backend/src/appointments/service.ts`](./backend/src/appointments/service.ts) → `updateAppointmentStatusByTherapist`)
 
@@ -780,26 +780,26 @@ Route name `/therapist` (singular) intentionally distinct from `/therapists` (pl
 
 ### Schedule update rules ([`backend/src/therapist/service.ts`](./backend/src/therapist/service.ts) → `replaceSchedule`)
 
-- **RBAC**: only the therapist themselves — endpoint uses `req.user.profileId` from the JWT.
+- **RBAC**: only the therapist themselves - endpoint uses `req.user.profileId` from the JWT.
 - **Validation**:
   - `dayOfWeek ∈ [0, 6]`
   - `HH:mm` regex, `end > start`
-  - **No overlapping windows within the same day** — validated by sorting windows per day and checking `windows[i].start >= windows[i-1].end`
-- **Atomic replace** — done in a single DB transaction: `DELETE WHERE therapist_id = ?` then `INSERT` all new rows. Either both succeed or both roll back.
+  - **No overlapping windows within the same day** - validated by sorting windows per day and checking `windows[i].start >= windows[i-1].end`
+- **Atomic replace** - done in a single DB transaction: `DELETE WHERE therapist_id = ?` then `INSERT` all new rows. Either both succeed or both roll back.
 
 ### Why "schedule update doesn't affect existing bookings" is trivially true
 
 This is worth spelling out because it's a specific correctness requirement in the assignment:
 
 - The `schedules` table is a **template**, not a source of truth for booked appointments.
-- Every `appointments` row carries its own concrete `start_time TIMESTAMPTZ` and `end_time TIMESTAMPTZ` — no foreign key or reference to `schedules`.
+- Every `appointments` row carries its own concrete `start_time TIMESTAMPTZ` and `end_time TIMESTAMPTZ` - no foreign key or reference to `schedules`.
 - The availability endpoint (Phase 2) is the *only* consumer of `schedules`, and it uses them to project available slots on the fly.
 - Consequences:
   - Deleting a schedule row **cannot** cascade to appointments (no FK).
   - Replacing all schedule rows leaves all existing appointment rows byte-for-byte identical.
-  - The therapist may still `complete`/`no_show`/`cancel` an appointment whose time no longer falls on any schedule window — it doesn't matter, the appointment is a materialized fact.
+  - The therapist may still `complete`/`no_show`/`cancel` an appointment whose time no longer falls on any schedule window - it doesn't matter, the appointment is a materialized fact.
 
-The Phase 5 smoke test proves this end-to-end: snapshot the appointment list, replace the entire schedule with Sundays-only, snapshot again — every appointment id, `start_time`, and `status` is byte-identical. Then verify the availability endpoint immediately reflects the new schedule (no old-day slots offered).
+The Phase 5 smoke test proves this end-to-end: snapshot the appointment list, replace the entire schedule with Sundays-only, snapshot again - every appointment id, `start_time`, and `status` is byte-identical. Then verify the availability endpoint immediately reflects the new schedule (no old-day slots offered).
 
 ### Interaction with holds during a schedule change
 
@@ -809,7 +809,7 @@ I considered invalidating holds on schedule replace but decided against it: (a) 
 
 ### Test coverage (Phase 5)
 
-`backend/scripts/smoke-phase5.mjs` — 22 assertions across 6 scenarios:
+`backend/scripts/smoke-phase5.mjs` - 22 assertions across 6 scenarios:
 
 1. `GET /therapist/appointments` returns joined patient name; patient role gets 403.
 2. `PATCH /appointments/:id/status` **before** the window opens → 400.
@@ -824,12 +824,12 @@ _The backend is now feature-complete for both roles. Phase 6 will build the Reac
 
 ---
 
-## Phase 6 — Frontend
+## Phase 6 - Frontend
 
 Single-page React app that consumes every backend endpoint. Split into three sub-phases:
-- **6a** — scaffold + auth shell + login
-- **6b** — patient dashboard (availability + holds + booking + my bookings)
-- **6c** — therapist dashboard (assigned appointments + status update + schedule editor)
+- **6a** - scaffold + auth shell + login
+- **6b** - patient dashboard (availability + holds + booking + my bookings)
+- **6c** - therapist dashboard (assigned appointments + status update + schedule editor)
 
 ### Stack
 
@@ -838,17 +838,17 @@ Single-page React app that consumes every backend endpoint. Split into three sub
 | Bundler / dev server | **Vite 5** | Fastest DX, ESM-native, zero config for React+TS |
 | Framework | **React 18** | Ubiquitous, matches the JD |
 | Routing | **React Router 6** | Straightforward nested routes + programmatic navigation |
-| Server state | **TanStack Query 5** | Handles caching, deduping, invalidation — critical for booking flows |
+| Server state | **TanStack Query 5** | Handles caching, deduping, invalidation - critical for booking flows |
 | Client state | **Zustand** (with `persist` middleware) | Auth token + user need to survive refreshes; Zustand + `localStorage` is 20 lines |
 | Styling | **Tailwind 3.4** | Design velocity + consistency without inventing a component library |
 | Dates | **dayjs** with `utc`, `timezone`, `relativeTime` | Mirrors backend `APP_TZ` choice; tiny bundle vs. moment |
 | Type safety | **TypeScript** strict, one shared `types/api.ts` mirroring backend DTOs |
 
-Deliberately avoided: form libraries (RHF/Formik) — every form here is 2–3 fields; UI kits (MUI/Chakra) — heavy and would clash with brand style. Tailwind + a handful of `@apply` component classes (`.card`, `.btn-primary`, `.input`) is enough.
+Deliberately avoided: form libraries (RHF/Formik) - every form here is 2-3 fields; UI kits (MUI/Chakra) - heavy and would clash with brand style. Tailwind + a handful of `@apply` component classes (`.card`, `.btn-primary`, `.input`) is enough.
 
 ### Design language
 
-- **Palette**: brand teal (`#0d9488`) + slate greys. Warm, calming — matches Wysa's mental-health positioning.
+- **Palette**: brand teal (`#0d9488`) + slate greys. Warm, calming - matches Wysa's mental-health positioning.
 - **Type**: Inter, weights 400/500/600/700.
 - **Layout**: 6 xl container, generous padding, rounded-2xl cards with a soft two-layer shadow.
 - **Motion**: 200 ms fade-in on modals & banners; the hold countdown bar animates smoothly from full to empty.
@@ -856,17 +856,17 @@ Deliberately avoided: form libraries (RHF/Formik) — every form here is 2–3 f
 
 ### Shared foundation
 
-- `lib/api.ts` — typed `fetch` wrapper that reads the token from Zustand, injects `Authorization`/`Idempotency-Key`, and throws a structured `ApiError { status, code, message, details }`. On 401 it clears the local session so the router redirects to `/login` on the next render.
-- `lib/queryClient.ts` — retries 4xx never, others twice, 15 s `staleTime`, `refetchOnWindowFocus: false`.
-- `lib/time.ts` — mirrors backend `APP_TZ`, exposes `fmtDay`, `fmtTime`, `fmtRange`, `groupByDay`.
-- `store/auth.ts` — `{ token, user, login, logout }`, persisted to `localStorage` under `wysa.auth`.
-- `components/ProtectedRoute.tsx` — redirects unauthed users to `/login` and cross-role users to their own dashboard.
-- `components/Modal.tsx` — accessible overlay with backdrop click + Escape to close.
-- `components/Toast.tsx` — tiny Zustand-backed toast bus (`toast.success/error/info`) rendered by a single `<ToastHost />` at the app root; auto-dismisses after ~4 s.
+- `lib/api.ts` - typed `fetch` wrapper that reads the token from Zustand, injects `Authorization`/`Idempotency-Key`, and throws a structured `ApiError { status, code, message, details }`. On 401 it clears the local session so the router redirects to `/login` on the next render.
+- `lib/queryClient.ts` - retries 4xx never, others twice, 15 s `staleTime`, `refetchOnWindowFocus: false`.
+- `lib/time.ts` - mirrors backend `APP_TZ`, exposes `fmtDay`, `fmtTime`, `fmtRange`, `groupByDay`.
+- `store/auth.ts` - `{ token, user, login, logout }`, persisted to `localStorage` under `wysa.auth`.
+- `components/ProtectedRoute.tsx` - redirects unauthed users to `/login` and cross-role users to their own dashboard.
+- `components/Modal.tsx` - accessible overlay with backdrop click + Escape to close.
+- `components/Toast.tsx` - tiny Zustand-backed toast bus (`toast.success/error/info`) rendered by a single `<ToastHost />` at the app root; auto-dismisses after ~4 s.
 
 ### Idempotency on the client
 
-Every booking `POST` generates a fresh UUID v4 via `crypto.randomUUID()` (`newIdempotencyKey()`) and sends it as `Idempotency-Key`. This makes React Query's automatic retries safe — the server dedupes by key + patient — and it also protects against the double-click case. The key is scoped to the mutation call, so a retry uses the same key while a *fresh* booking attempt gets a new one.
+Every booking `POST` generates a fresh UUID v4 via `crypto.randomUUID()` (`newIdempotencyKey()`) and sends it as `Idempotency-Key`. This makes React Query's automatic retries safe - the server dedupes by key + patient - and it also protects against the double-click case. The key is scoped to the mutation call, so a retry uses the same key while a *fresh* booking attempt gets a new one.
 
 ### Patient dashboard ([`routes/PatientDashboard.tsx`](./frontend/src/routes/PatientDashboard.tsx))
 
@@ -881,13 +881,13 @@ Two tabs: **Find a slot** and **My bookings**. Above the tabs, a **sticky HoldBa
   - `held_by_me` → brand fill, disabled
   - `held_by_other` → amber
   - `booked` → slate + disabled
-- Click `available` → `POST /holds` via `useCreateHold` mutation. On success, React Query invalidates `myHold` and `availability` queries — the banner appears and the chip flips to `held_by_me` in one render.
+- Click `available` → `POST /holds` via `useCreateHold` mutation. On success, React Query invalidates `myHold` and `availability` queries - the banner appears and the chip flips to `held_by_me` in one render.
 
 **Bug caught during first screenshot**: the initial version sent full ISO timestamps for `from`/`to`, but the backend zod schema requires `YYYY-MM-DD`. The 400 was being swallowed into the "no slots" empty state. Fix was two-part: (1) format params correctly on the client, (2) surface `error` from `useQuery` in the UI so future failures are visible instead of silent.
 
 #### HoldBanner
 - Reads `GET /holds/mine`. Runs a `setInterval(..., 1000)` **only while a hold exists** so the countdown is live but doesn't waste cycles when idle.
-- Progress bar goes brand → amber (≤25 s) → rose (≤10 s) — a subtle escalation cue.
+- Progress bar goes brand → amber (≤25 s) → rose (≤10 s) - a subtle escalation cue.
 - When the countdown hits 0, it invalidates the hold + availability queries (server-side TTL has expired, so the next fetch will return `null` and the banner will unmount).
 - **Confirm** opens `BookingModal`; **Release** calls `DELETE /holds/mine`.
 
@@ -900,9 +900,9 @@ Two tabs: **Find a slot** and **My bookings**. Above the tabs, a **sticky HoldBa
 
 #### MyBookings
 - Three sections:
-  1. **Upcoming** — future scheduled appointments; each row shows date badge, time range, therapist, series-badge if applicable, and a Cancel button.
-  2. **Recurring series** — active series with frequency, anchor time, therapist, upcoming-instance count, and a Cancel-series button.
-  3. **Recent history** — last 20 terminal-status or past appointments (read-only).
+  1. **Upcoming** - future scheduled appointments; each row shows date badge, time range, therapist, series-badge if applicable, and a Cancel button.
+  2. **Recurring series** - active series with frequency, anchor time, therapist, upcoming-instance count, and a Cancel-series button.
+  3. **Recent history** - last 20 terminal-status or past appointments (read-only).
 - Cancel confirmations use `<Modal>` and show the **number of future instances** that will be cancelled for series, which is derived client-side by filtering appointments by `seriesId + startTime > now`.
 
 ### Therapist dashboard ([`routes/TherapistDashboard.tsx`](./frontend/src/routes/TherapistDashboard.tsx))
@@ -911,17 +911,17 @@ Two tabs: **Appointments** and **Weekly schedule**. Hash-linkable the same way.
 
 #### AssignedAppointments
 - `GET /therapist/appointments` with a 30 s auto-refresh (`refetchInterval`).
-- Also runs a client-side 30 s tick to re-evaluate the *window-open* state for each row — this way "Mark completed" enables/disables in near-real-time without requiring a full refetch.
+- Also runs a client-side 30 s tick to re-evaluate the *window-open* state for each row - this way "Mark completed" enables/disables in near-real-time without requiring a full refetch.
 - Filter chips **Upcoming / Today / Past**.
-- Each row shows an initials avatar (chosen instead of a generic user icon — feels more human), patient name, time range, and status badge.
+- Each row shows an initials avatar (chosen instead of a generic user icon - feels more human), patient name, time range, and status badge.
 - **Status action buttons** are only rendered when `status === "scheduled" && now ∈ [start, end)`. Outside the window, a small italic hint explains why: "Available in 2 hours" or "Window closed 3 hours ago" (uses `dayjs().from(...)`). The button click posts `PATCH /appointments/:id/status`.
 
 #### ScheduleEditor
 - `GET /therapist/schedule` seeds the draft state; a `useEffect` re-syncs when the server data changes.
-- Seven day rows (Sun–Sat), each with a list of `<input type="time">` pairs and an **Add window** button. Removal is inline.
+- Seven day rows (Sun-Sat), each with a list of `<input type="time">` pairs and an **Add window** button. Removal is inline.
 - **Client-side validation** mirrors the server: `end > start`; no overlapping windows within a day (windows sorted by start; adjacent pairs checked). Any violation renders in a red list and disables Save.
-- `isDirty` diff (normalized string sort) drives the Save/Discard button state — no unnecessary PUTs.
-- Save calls `PUT /therapist/schedule` with the full array. The information card at the top reminds the therapist that **existing appointments are unaffected** — that's the assignment's requirement, so it's worth making it explicit in the UI.
+- `isDirty` diff (normalized string sort) drives the Save/Discard button state - no unnecessary PUTs.
+- Save calls `PUT /therapist/schedule` with the full array. The information card at the top reminds the therapist that **existing appointments are unaffected** - that's the assignment's requirement, so it's worth making it explicit in the UI.
 
 ##### Time-format contract for `/therapist/schedule`
 
@@ -967,9 +967,9 @@ Production build: `261 KB` JS (`82 KB` gzipped) + `25 KB` CSS (`4.7 KB` gzipped)
 
 ---
 
-## Phase 7 — Hardening
+## Phase 7 - Hardening
 
-Pre-deployment audit + fixes. Goal: catch every "the internet is a hostile place" issue before shipping. The focus areas from the assignment are **rate limiting, input validation, error handling, CORS, security headers, logs** — this section walks through what was already in place, what was gappy, and what changed.
+Pre-deployment audit + fixes. Goal: catch every "the internet is a hostile place" issue before shipping. The focus areas from the assignment are **rate limiting, input validation, error handling, CORS, security headers, logs** - this section walks through what was already in place, what was gappy, and what changed.
 
 ### Baseline audit
 
@@ -977,19 +977,19 @@ Pre-deployment audit + fixes. Goal: catch every "the internet is a hostile place
 |---|---|---|
 | CSP / XSS / clickjacking / MIME sniffing | `helmet()` with defaults | ✅ Good. Adds `X-Content-Type-Options`, `X-Frame-Options`, HSTS (in prod), strict CSP. |
 | Body size cap | `express.json({ limit: "100kb" })` | ✅ Small enough that a payload flood can't wedge memory. |
-| CORS | Origin from env, single or comma-list | ✅ Kept — added explicit `allowedHeaders` and `exposedHeaders`. |
-| Input validation | zod on every mutating body | ✅ Kept — added `zod` for **route params** (`:id` must be UUID). |
+| CORS | Origin from env, single or comma-list | ✅ Kept - added explicit `allowedHeaders` and `exposedHeaders`. |
+| Input validation | zod on every mutating body | ✅ Kept - added `zod` for **route params** (`:id` must be UUID). |
 | Auth | JWT via `jsonwebtoken`, bcryptjs for passwords | ✅ Solid crypto choices. Added `iss` + `aud` claim verification. |
 | Rate limiting | Single global limit (300/min) | ⚠ No per-endpoint tiering; `/auth/login` shared the loose global bucket → brute force friendly. |
 | Trust proxy | Unset | ⚠ Behind Render/Vercel, `req.ip` would be the proxy IP → rate limits would bucket all users into one key. |
 | Route params | Passed through unvalidated | ⚠ Non-UUID `:id` values hit the DB (small waste + surface area). |
 | Error responses | Custom `AppError` + `ZodError` branch | ✅ Consistent envelope. Extended to never leak stack traces in prod. |
-| Logs | pino default | ⚠ No redaction — `Authorization: Bearer <token>` could land in logs. |
+| Logs | pino default | ⚠ No redaction - `Authorization: Bearer <token>` could land in logs. |
 | Maintenance endpoints | `/series/extend` open to any authed user | ⚠ Anyone with a JWT could trigger the cron manually. |
 
 ### Changes
 
-#### 1. `trust proxy` — the invisible-until-it-bites setting
+#### 1. `trust proxy` - the invisible-until-it-bites setting
 
 ```1:11:backend/src/index.ts
 import express from "express";
@@ -1000,7 +1000,7 @@ import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 ```
 
-`app.set("trust proxy", config.TRUST_PROXY)` — set to `1` for a single reverse proxy (Render/Vercel/Nginx). Without this, every request appears to come from the proxy's IP, so every rate limit effectively becomes a global limit, and IP-keyed brute-force protection is worthless. Configurable so we can raise it if we ever add multiple hops.
+`app.set("trust proxy", config.TRUST_PROXY)` - set to `1` for a single reverse proxy (Render/Vercel/Nginx). Without this, every request appears to come from the proxy's IP, so every rate limit effectively becomes a global limit, and IP-keyed brute-force protection is worthless. Configurable so we can raise it if we ever add multiple hops.
 
 #### 2. Rate-limit tiers ([`backend/src/lib/rateLimit.ts`](./backend/src/lib/rateLimit.ts))
 
@@ -1009,7 +1009,7 @@ Three named limiters, all keyed correctly for their purpose, all responding with
 | Limiter | Applied to | Key | Default | Reasoning |
 |---|---|---|---|---|
 | `globalLimiter` | `app.use(...)` | IP | 300/min | Safety net; catches anomalous traffic before it reaches per-route limiters |
-| `authLimiter` | `POST /auth/login` | IP | 10/min | Brute-force ceiling. A real human logs in maybe 2–3× per minute at worst |
+| `authLimiter` | `POST /auth/login` | IP | 10/min | Brute-force ceiling. A real human logs in maybe 2-3× per minute at worst |
 | `bookingLimiter` | `POST /holds`, `POST /appointments` | User (profileId), falls back to IP | 30/min | Prevents a compromised account from spamming the booking pipeline; falls back to IP so pre-auth 401s still get bucketed |
 
 All thresholds are env-configurable (`RATE_LIMIT_GLOBAL_PER_MIN`, `RATE_LIMIT_AUTH_PER_MIN`, `RATE_LIMIT_BOOKING_PER_MIN`) so ops can tune without a redeploy.
@@ -1029,7 +1029,7 @@ Non-UUID ids now return `400 VALIDATION_ERROR` before the DB is touched. Reduces
 
 #### 4. Idempotency-Key format
 
-Tightened from "8–128 chars, any content" to a URL-safe alphabet regex: `^[A-Za-z0-9._~:-]{8,128}$`. Rejects headers with spaces, control chars, or weird characters early. UUID v4 (what the frontend generates) satisfies this trivially.
+Tightened from "8-128 chars, any content" to a URL-safe alphabet regex: `^[A-Za-z0-9._~:-]{8,128}$`. Rejects headers with spaces, control chars, or weird characters early. UUID v4 (what the frontend generates) satisfies this trivially.
 
 #### 5. JWT `iss`/`aud` claims ([`backend/src/auth/service.ts`](./backend/src/auth/service.ts))
 
@@ -1054,8 +1054,8 @@ Every response body has exactly the same shape:
 
 #### 8. Request IDs + smart HTTP logging ([`backend/src/index.ts`](./backend/src/index.ts))
 
-- `pino-http` is configured with `genReqId` — echoes an incoming `X-Request-ID` if present, otherwise generates a UUID. The value is set on the response, so the client always has an id to include in bug reports.
-- Health endpoint requests are excluded from access logs — `/health` gets hit every 30 s by uptime probes and the noise crowds real signal.
+- `pino-http` is configured with `genReqId` - echoes an incoming `X-Request-ID` if present, otherwise generates a UUID. The value is set on the response, so the client always has an id to include in bug reports.
+- Health endpoint requests are excluded from access logs - `/health` gets hit every 30 s by uptime probes and the noise crowds real signal.
 - Custom `customLogLevel` maps 5xx → `error`, 4xx → `warn`, 2xx/3xx → `info`. Makes log-based alerting straightforward.
 
 #### 9. Maintenance endpoint hardening ([`backend/src/lib/adminGuard.ts`](./backend/src/lib/adminGuard.ts))
@@ -1073,17 +1073,17 @@ Explicitly enumerated `allowedHeaders` (`Content-Type`, `Authorization`, `Idempo
 ### What was intentionally NOT added
 
 - **Refresh tokens / short-lived access tokens**: out of scope for a take-home; the 7-day JWT is fine for a demo.
-- **CSRF protection**: not needed — the API accepts `Authorization: Bearer` only, not cookies, so there's no ambient credential a CSRF could exploit.
+- **CSRF protection**: not needed - the API accepts `Authorization: Bearer` only, not cookies, so there's no ambient credential a CSRF could exploit.
 - **Password strength meter / signup validation**: assignment doesn't include signup; seeded users have known passwords.
 - **`redis` instance connection retries / circuit breaker**: ioredis handles this reasonably out of the box.
 - **DB connection pool tuning**: default `pg` pool sizes are fine for the traffic profile.
 
 ### Test coverage (Phase 7)
 
-`backend/scripts/smoke-phase7.mjs` — 22 assertions across 8 areas:
+`backend/scripts/smoke-phase7.mjs` - 22 assertions across 8 areas:
 
 1. Security headers present (HSTS, X-Content-Type-Options, X-Frame-Options, `RateLimit-Policy`), custom `X-Request-ID` header round-trips.
-2. Setup — grab a patient JWT before the auth-limit test drains the login bucket.
+2. Setup - grab a patient JWT before the auth-limit test drains the login bucket.
 3. Zod validation errors → `{ code: "VALIDATION_ERROR", details: { fieldErrors } }`, structured per-field arrays.
 4. Non-UUID route params rejected with 400 before the DB is queried (verified for `/appointments/:id`, `/series/:id`).
 5. `Idempotency-Key` header format: too short → 400; contains spaces / `#` → 400.
@@ -1120,7 +1120,7 @@ Regression check: all Phase 3, 4, 5 smoke tests still pass unchanged.
 
 ---
 
-## Phase 8 — Deployment
+## Phase 8 - Deployment
 
 Ship the app to the internet on four free-tier managed services with zero infrastructure ops.
 
@@ -1149,23 +1149,23 @@ Rationale for each choice:
 | Backend host | **Render** | Fly.io, Railway, Heroku | First-class Blueprint (IaC), free tier is Node-native (no Docker required), health checks + rolling deploys out of the box |
 | Frontend host | **Vercel** | Netlify, Cloudflare Pages | Best-in-class Vite auto-detection, generous free tier, edge caching for the static bundle |
 
-Everything is $0 to run. The only free-tier limitation that matters for this app is Render's cold-start behavior — documented and mitigated (see below).
+Everything is $0 to run. The only free-tier limitation that matters for this app is Render's cold-start behavior - documented and mitigated (see below).
 
-### Who does what — a mental model
+### Who does what - a mental model
 
 Four services, three totally independent responsibilities. Understanding the split is the key to understanding what a `git push` does and doesn't touch.
 
 | Service | Type | What it stores | What it does on `git push` |
 |---|---|---|---|
 | **GitHub** | Source of truth | Code, `render.yaml`, `vercel.json` | Receives the push, fires webhooks |
-| **Vercel** | Compute (edge / CDN) | Nothing app-specific — just the built static assets | Rebuilds the frontend bundle, uploads to their CDN |
-| **Render** | Compute (long-lived Node process) | Nothing — 100% stateless container | Rebuilds the backend, runs migrations, boots the new process, cuts traffic over |
+| **Vercel** | Compute (edge / CDN) | Nothing app-specific - just the built static assets | Rebuilds the frontend bundle, uploads to their CDN |
+| **Render** | Compute (long-lived Node process) | Nothing - 100% stateless container | Rebuilds the backend, runs migrations, boots the new process, cuts traffic over |
 | **Neon** | Postgres storage | All user data (users, appointments, series, schedules) | **Nothing.** DB is untouched. Only the code that talks to it changes. |
 | **Upstash** | Redis storage | Ephemeral state (holds, idempotency cache, distributed locks) | **Nothing.** Redis TTLs everything anyway, so it's naturally self-cleaning. |
 
-The two storage services (Neon, Upstash) never see your `git push` — they only receive traffic from the running backend. That's the crux of the "code redeploys, data persists" model.
+The two storage services (Neon, Upstash) never see your `git push` - they only receive traffic from the running backend. That's the crux of the "code redeploys, data persists" model.
 
-### Deploy lifecycle — what happens when you `git push`
+### Deploy lifecycle - what happens when you `git push`
 
 Concrete second-by-second sequence:
 
@@ -1180,13 +1180,13 @@ t=2     GitHub fires two webhooks in parallel:
 ──── Render branch (backend) ────
 t=5     Render clones the repo at the new commit
 t=8     Runs buildCommand from render.yaml:
-        npm ci --include=dev              (~40 s — installs deps)
-        npm run build                     (~10 s — tsc emits dist/)
-        npm prune --omit=dev              (~5 s — strips devDeps)
+        npm ci --include=dev              (~40 s - installs deps)
+        npm run build                     (~10 s - tsc emits dist/)
+        npm prune --omit=dev              (~5 s - strips devDeps)
 t=70    Runs startCommand:
         npm run db:migrate:prod           (Drizzle applies any new migrations
                                            to Neon; no-op if already applied)
-        npm start                         (node dist/index.js — new process)
+        npm start                         (node dist/index.js - new process)
 t=75    New process binds to :10000, connects to Neon + Upstash,
         schedules the cron, /health returns {"ok":true}
 t=76    Render flips the load balancer to the new instance
@@ -1203,7 +1203,7 @@ t=40    Aliases the production URL to the new deployment
         Old deployment stays around indefinitely (rollback-ready)
 ```
 
-**Both services finish independently in ~1–2 min.** No coordination. If the backend deploy fails, the frontend still deploys — you'll get a working UI that can't talk to the API. Same in reverse. Rare in practice, easy to notice via smoke test.
+**Both services finish independently in ~1-2 min.** No coordination. If the backend deploy fails, the frontend still deploys - you'll get a working UI that can't talk to the API. Same in reverse. Rare in practice, easy to notice via smoke test.
 
 ### What auto-updates vs what doesn't
 
@@ -1211,14 +1211,14 @@ The single most important table in this doc for day-2 operations.
 
 | Thing you changed | Auto-deploys on `git push`? | Requires manual action |
 |---|---|---|
-| Backend source code (`backend/src/**`) | ✅ Render rebuilds and rolls out | — |
-| Frontend source code (`frontend/src/**`) | ✅ Vercel rebuilds and rolls out | — |
-| Backend dependencies (`backend/package.json`) | ✅ Included in `npm ci` on next build | — |
-| Frontend dependencies (`frontend/package.json`) | ✅ Included in Vercel's build | — |
-| Database **schema** (new Drizzle migration file) | ✅ `db:migrate:prod` runs on every backend boot | — |
+| Backend source code (`backend/src/**`) | ✅ Render rebuilds and rolls out | - |
+| Frontend source code (`frontend/src/**`) | ✅ Vercel rebuilds and rolls out | - |
+| Backend dependencies (`backend/package.json`) | ✅ Included in `npm ci` on next build | - |
+| Frontend dependencies (`frontend/package.json`) | ✅ Included in Vercel's build | - |
+| Database **schema** (new Drizzle migration file) | ✅ `db:migrate:prod` runs on every backend boot | - |
 | Database **data** (seed changes) | ❌ Seed is never auto-run | Re-run `npm run db:seed` locally against Neon (see below) |
-| `render.yaml` (non-secret env vars, build command, region) | ✅ Render re-reads it on each build | — |
-| `vercel.json` (rewrites, headers, build settings) | ✅ Vercel re-reads it on each build | — |
+| `render.yaml` (non-secret env vars, build command, region) | ✅ Render re-reads it on each build | - |
+| `vercel.json` (rewrites, headers, build settings) | ✅ Vercel re-reads it on each build | - |
 | **Secret** env vars (`DATABASE_URL`, `REDIS_URL`, `CORS_ORIGIN`, `ADMIN_TOKEN`, `JWT_SECRET`) | ❌ Never in git | Set once in Render dashboard → Environment tab |
 | Frontend env var (`VITE_API_URL`) | ❌ Baked in at build time | Set once in Vercel dashboard → Settings → Environment |
 | Neon database itself (provisioning, region, plan) | ❌ | Managed in Neon dashboard |
@@ -1229,7 +1229,7 @@ The two footguns hidden in this table:
 1. **Frontend env vars are compile-time.** If you change `VITE_API_URL` in Vercel, nothing happens until the **next** deploy. Trigger a redeploy from the Vercel dashboard (or push a no-op commit) after editing it.
 2. **Seed is intentionally not automatic.** Once therapists start editing their schedules through the UI, re-running the seed would silently wipe those edits. If you truly need a re-seed, either accept the loss or write a partial-seed script that only touches missing rows.
 
-### Monorepo caveat — both services rebuild on every push
+### Monorepo caveat - both services rebuild on every push
 
 By default, Render and Vercel each rebuild on **every** push, even one that only touched the other service's folder. So editing a single line in `frontend/src/App.tsx` triggers a backend rebuild too (which is a no-op that still burns 60 seconds).
 
@@ -1246,14 +1246,14 @@ Useful to know when debugging "why is the first request slow?":
 
 ```
 1. Render receives an inbound request to a sleeping instance
-2. Container spins up (~10 s — pulling image, starting Node process)
+2. Container spins up (~10 s - pulling image, starting Node process)
 3. node dist/db/migrate.js:
      - Opens a Postgres connection
      - Reads __drizzle_migrations table
      - Applies pending migrations (usually zero)
      - Exits
 4. node dist/index.js:
-     - Loads config (Zod validates all env vars — fails fast if any missing)
+     - Loads config (Zod validates all env vars - fails fast if any missing)
      - Opens Postgres pool (5 connections, TLS)
      - Opens Redis connection (TLS via rediss://)
      - Schedules the nightly cron
@@ -1264,9 +1264,9 @@ Useful to know when debugging "why is the first request slow?":
 7. First real request served
 ```
 
-Total cold start: **~30 s** on Render free tier. **~2 s** on a paid always-on plan (steps 1–3 vanish; only the process needs to start).
+Total cold start: **~30 s** on Render free tier. **~2 s** on a paid always-on plan (steps 1-3 vanish; only the process needs to start).
 
-### Runtime request flow — one booking, end to end
+### Runtime request flow - one booking, end to end
 
 Sequence when a patient clicks "Confirm booking":
 
@@ -1276,7 +1276,7 @@ Sequence when a patient clicks "Confirm booking":
                             │
                             ▼
 2. Vercel's CDN passes it through (Vercel only serves the static bundle;
-   API calls go direct to Render — same-origin isn't enforced, CORS handles it)
+   API calls go direct to Render - same-origin isn't enforced, CORS handles it)
                             │
                             ▼
 3. Render load balancer routes to the running instance
@@ -1292,13 +1292,13 @@ Sequence when a patient clicks "Confirm booking":
                             │
                             ▼
 6. Acquire Redlock on booking:<therapistId>:<startTime>
-   (Redis SET NX EX across all API instances — mutual exclusion)
+   (Redis SET NX EX across all API instances - mutual exclusion)
                             │
                             ▼
 7. Consume the hold atomically (Lua script in Redis)
                             │
                             ▼
-8. INSERT appointment (Postgres partial unique index is the final safety net —
+8. INSERT appointment (Postgres partial unique index is the final safety net -
    if the Redlock ever failed, the DB would still reject a duplicate)
                             │
                             ▼
@@ -1311,13 +1311,13 @@ Sequence when a patient clicks "Confirm booking":
 11. Response flows back → React updates UI
 ```
 
-Every hop is instrumented — check the Render logs and you'll see a single line per request with the req-id, path, status, and response time.
+Every hop is instrumented - check the Render logs and you'll see a single line per request with the req-id, path, status, and response time.
 
 ### Re-seeding production data without shell access
 
 Render's free tier doesn't include Shell access, so the seed can't be run inside the container. Two workable paths:
 
-**Preferred — run seed locally against Neon:**
+**Preferred - run seed locally against Neon:**
 ```bash
 cd backend
 cp .env .env.local.bak
@@ -1325,9 +1325,9 @@ cp .env .env.local.bak
 npm run db:seed
 mv .env.local.bak .env
 ```
-Same script, same idempotency guarantees. The seed connects to Neon over TLS just like the deployed backend does — there's nothing "prod" about running from your laptop except the destination URL.
+Same script, same idempotency guarantees. The seed connects to Neon over TLS just like the deployed backend does - there's nothing "prod" about running from your laptop except the destination URL.
 
-**Alternative — a guarded admin endpoint:** if you plan to re-seed frequently, adding `POST /admin/seed` (guarded by `X-Admin-Token`) is a ~15-line change. Not done today because occasional re-seeds via local shell are simpler and safer than shipping a mutating endpoint.
+**Alternative - a guarded admin endpoint:** if you plan to re-seed frequently, adding `POST /admin/seed` (guarded by `X-Admin-Token`) is a ~15-line change. Not done today because occasional re-seeds via local shell are simpler and safer than shipping a mutating endpoint.
 
 ### Production-readiness changes
 
@@ -1345,7 +1345,7 @@ const needsSsl =
   url.includes(".aws.");
 ```
 
-`rejectUnauthorized: false` is used to accept the provider's cert without pinning — acceptable for a demo, easily upgradeable to a shipped CA bundle for a hardened deployment. Pool size drops from 10 → 5 in production because Neon's default plan is more sensitive to open connections and the pooled endpoint amplifies fewer connections into many logical ones.
+`rejectUnauthorized: false` is used to accept the provider's cert without pinning - acceptable for a demo, easily upgradeable to a shipped CA bundle for a hardened deployment. Pool size drops from 10 → 5 in production because Neon's default plan is more sensitive to open connections and the pooled endpoint amplifies fewer connections into many logical ones.
 
 #### 2. Redis TLS ([`backend/src/redis.ts`](./backend/src/redis.ts))
 
@@ -1361,7 +1361,7 @@ Render/PaaS providers send `SIGTERM` and give ~30 seconds before `SIGKILL`. The 
 4. Ends the Postgres pool.
 5. Exits 0.
 
-A 15 s force-exit timer guards against a stuck close. Also handles `uncaughtException` and `unhandledRejection` — any promise rejection that escapes the request path now triggers a clean shutdown instead of leaving the process wedged.
+A 15 s force-exit timer guards against a stuck close. Also handles `uncaughtException` and `unhandledRejection` - any promise rejection that escapes the request path now triggers a clean shutdown instead of leaving the process wedged.
 
 Verified locally: booting `node dist/index.js` and sending `SIGTERM` produces:
 ```
@@ -1379,18 +1379,18 @@ Two new prod scripts:
 
 Render's start command is `npm run db:migrate:prod && npm start`. Drizzle tracks applied migrations in a `__drizzle_migrations` table, so running on every boot is idempotent + safe.
 
-Seeding is **not** automatic — `db:seed:prod` is available for a one-off shell exec after the first successful deploy. Running it on every deploy would clobber real data as soon as therapists start editing their schedules.
+Seeding is **not** automatic - `db:seed:prod` is available for a one-off shell exec after the first successful deploy. Running it on every deploy would clobber real data as soon as therapists start editing their schedules.
 
 ### Deployment artifacts
 
-- **[`render.yaml`](./render.yaml)** — Render Blueprint. Defines the web service, runtime, build/start commands, health check, all non-secret env vars, and marks the four secrets (`DATABASE_URL`, `REDIS_URL`, `CORS_ORIGIN`, `ADMIN_TOKEN`) as `sync: false` so Render prompts for them post-provision.
-- **[`backend/Dockerfile`](./backend/Dockerfile)** — Multi-stage build for portability. Not needed for Render (uses native Node runtime) but works on Fly.io / Railway / any container platform. Runs as non-root `wysa` user, includes a `HEALTHCHECK`.
-- **[`frontend/vercel.json`](./frontend/vercel.json)** — SPA rewrites (`/(?!assets/).*` → `/index.html`), aggressive caching on `/assets/*` (`max-age=31536000, immutable`), and extra security headers (`X-Frame-Options: DENY`, `Permissions-Policy` denying camera/mic/geolocation).
-- **[`DEPLOY.md`](./DEPLOY.md)** — Human-readable step-by-step: Neon → Upstash → Render (Blueprint or manual) → Vercel → verification. Includes a full environment-variable reference table and troubleshooting section.
+- **[`render.yaml`](./render.yaml)** - Render Blueprint. Defines the web service, runtime, build/start commands, health check, all non-secret env vars, and marks the four secrets (`DATABASE_URL`, `REDIS_URL`, `CORS_ORIGIN`, `ADMIN_TOKEN`) as `sync: false` so Render prompts for them post-provision.
+- **[`backend/Dockerfile`](./backend/Dockerfile)** - Multi-stage build for portability. Not needed for Render (uses native Node runtime) but works on Fly.io / Railway / any container platform. Runs as non-root `wysa` user, includes a `HEALTHCHECK`.
+- **[`frontend/vercel.json`](./frontend/vercel.json)** - SPA rewrites (`/(?!assets/).*` → `/index.html`), aggressive caching on `/assets/*` (`max-age=31536000, immutable`), and extra security headers (`X-Frame-Options: DENY`, `Permissions-Policy` denying camera/mic/geolocation).
+- **[`DEPLOY.md`](./DEPLOY.md)** - Human-readable step-by-step: Neon → Upstash → Render (Blueprint or manual) → Vercel → verification. Includes a full environment-variable reference table and troubleshooting section.
 
 ### Production smoke test
 
-`backend/scripts/smoke-prod.mjs` — 14 read-only assertions across 5 areas: `/health`, `/auth/login`, `/therapists`, `/availability`, `/appointments`. Usage:
+`backend/scripts/smoke-prod.mjs` - 14 read-only assertions across 5 areas: `/health`, `/auth/login`, `/therapists`, `/availability`, `/appointments`. Usage:
 
 ```bash
 API_URL=https://wysa-backend.onrender.com \

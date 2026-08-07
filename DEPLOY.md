@@ -27,48 +27,48 @@ Four managed services, one afternoon.
 
 ---
 
-## 1. Neon — Postgres
+## 1. Neon - Postgres
 
 1. Create a new project (region: pick closest to your Render region, e.g. Singapore).
-2. Neon gives you a default `neondb` database — that's fine, or create `wysa`.
-3. From the project dashboard, copy the **pooled** connection string (looks like `postgres://user:password@ep-xxx-pooler.region.aws.neon.tech/neondb?sslmode=require`). The `-pooler` variant is important — it lets you burst above the direct-connection limit.
-4. Save it — you'll paste it into Render as `DATABASE_URL`.
+2. Neon gives you a default `neondb` database - that's fine, or create `wysa`.
+3. From the project dashboard, copy the **pooled** connection string (looks like `postgres://user:password@ep-xxx-pooler.region.aws.neon.tech/neondb?sslmode=require`). The `-pooler` variant is important - it lets you burst above the direct-connection limit.
+4. Save it - you'll paste it into Render as `DATABASE_URL`.
 
 _Migrations run automatically on backend startup (`db:migrate:prod`), so no manual setup here._
 
 ---
 
-## 2. Upstash — Redis
+## 2. Upstash - Redis
 
 1. Create a new Redis database. Region: same as Render.
-2. Enable **TLS** (default on the free tier). Do **not** pick the "REST-only" option — the app uses custom Lua scripts, which require the Redis protocol.
-3. From the database page, copy the **Redis URL** (starts with `rediss://` — the extra `s` = TLS).
+2. Enable **TLS** (default on the free tier). Do **not** pick the "REST-only" option - the app uses custom Lua scripts, which require the Redis protocol.
+3. From the database page, copy the **Redis URL** (starts with `rediss://` - the extra `s` = TLS).
 4. Save it for Render as `REDIS_URL`.
 
 ---
 
-## 3. Render — Backend
+## 3. Render - Backend
 
 You have two options: **Blueprint** (one-click, uses [`render.yaml`](./render.yaml)) or **manual**.
 
-### Option A — Blueprint (recommended)
+### Option A - Blueprint (recommended)
 
 1. Render dashboard → **New +** → **Blueprint**.
 2. Connect your GitHub repo. Render picks up `render.yaml` at the root.
 3. Render creates the `wysa-backend` service with all non-secret env vars pre-filled and `JWT_SECRET` auto-generated.
 4. In the service's **Environment** tab, fill in the four secrets:
-   - `DATABASE_URL` — the Neon pooled URL from step 1.
-   - `REDIS_URL` — the Upstash `rediss://…` URL from step 2.
-   - `CORS_ORIGIN` — paste your Vercel URL after step 4 (comma-separated for multiple, e.g. `https://wysa.vercel.app,https://wysa-preview.vercel.app`). For the first deploy you can put `*` temporarily and lock it down after Vercel is set up.
-   - `ADMIN_TOKEN` — a random 32+ char string (or leave blank until you need `/series/extend` locked down).
+   - `DATABASE_URL` - the Neon pooled URL from step 1.
+   - `REDIS_URL` - the Upstash `rediss://…` URL from step 2.
+   - `CORS_ORIGIN` - paste your Vercel URL after step 4 (comma-separated for multiple, e.g. `https://wysa.vercel.app,https://wysa-preview.vercel.app`). For the first deploy you can put `*` temporarily and lock it down after Vercel is set up.
+   - `ADMIN_TOKEN` - a random 32+ char string (or leave blank until you need `/series/extend` locked down).
 5. Trigger a deploy. First boot takes ~2 minutes (npm install → build → migrate → start).
-6. Health check: hit `https://<your-service>.onrender.com/health` — should return `{"ok":true,...}`.
+6. Health check: hit `https://<your-service>.onrender.com/health` - should return `{"ok":true,...}`.
 7. Seed the demo users (one-time, from the Render dashboard → **Shell** on the service):
    ```
    node dist/db/seed.js
    ```
 
-### Option B — Manual
+### Option B - Manual
 
 - Create a **Web Service** → Node runtime, root dir `backend/`.
 - Build command: `npm ci --include=dev && npm run build && npm prune --omit=dev`
@@ -80,14 +80,14 @@ You have two options: **Blueprint** (one-click, uses [`render.yaml`](./render.ya
 
 ### Notes on the Render free tier
 
-- **Cold starts** — the free plan spins the service down after ~15 min of inactivity. First request after a cold start takes ~30 s (Node + DB pool warmup). Fine for a demo; upgrade to Starter ($7/mo) for zero-idle.
-- **Cron reliability** — [`node-cron`](./backend/src/series/cron.ts) runs series extension nightly at 02:00 in the process timezone. This won't fire if the service is sleeping. Two easy fixes:
+- **Cold starts** - the free plan spins the service down after ~15 min of inactivity. First request after a cold start takes ~30 s (Node + DB pool warmup). Fine for a demo; upgrade to Starter ($7/mo) for zero-idle.
+- **Cron reliability** - [`node-cron`](./backend/src/series/cron.ts) runs series extension nightly at 02:00 in the process timezone. This won't fire if the service is sleeping. Two easy fixes:
   1. Upgrade to a paid plan (always-on).
   2. Add a Render Cron Job that hits `POST /series/extend` daily with the `X-Admin-Token` header (the internal cron becomes a no-op via Redlock).
 
 ---
 
-## 4. Vercel — Frontend
+## 4. Vercel - Frontend
 
 1. Vercel dashboard → **Add New** → **Project** → import the repo.
 2. Set **Root Directory** to `frontend/`. Vercel auto-detects Vite via [`vercel.json`](./frontend/vercel.json).
@@ -106,7 +106,7 @@ API_URL=https://<your-render-service>.onrender.com \
   node backend/scripts/smoke-prod.mjs
 ```
 
-This runs 14 read-only checks against the live backend — health, login, therapists, availability, appointments — with response-time timings. All checks should pass.
+This runs 14 read-only checks against the live backend - health, login, therapists, availability, appointments - with response-time timings. All checks should pass.
 
 Then open your Vercel URL, log in with any seeded demo account, and walk through: pick therapist → hold a slot → confirm booking (one-time and recurring) → view "My bookings" → cancel. Switch to the therapist login and confirm the appointment shows up in "Your caseload".
 
@@ -147,16 +147,16 @@ Then open your Vercel URL, log in with any seeded demo account, and walk through
 
 ## Troubleshooting
 
-**`/health` returns 502** — cold start, wait 30 s. If it persists, check Render logs for connection errors (usually `DATABASE_URL` or `REDIS_URL` typo).
+**`/health` returns 502** - cold start, wait 30 s. If it persists, check Render logs for connection errors (usually `DATABASE_URL` or `REDIS_URL` typo).
 
-**CORS errors in the browser** — `CORS_ORIGIN` on Render doesn't match your Vercel URL exactly. It must be an exact origin match, not a wildcard subdomain.
+**CORS errors in the browser** - `CORS_ORIGIN` on Render doesn't match your Vercel URL exactly. It must be an exact origin match, not a wildcard subdomain.
 
-**Login works but everything else 401s** — token has `iss`/`aud` claims. If you rotated `JWT_ISSUER` or `JWT_AUDIENCE`, users need to re-login.
+**Login works but everything else 401s** - token has `iss`/`aud` claims. If you rotated `JWT_ISSUER` or `JWT_AUDIENCE`, users need to re-login.
 
-**Build fails with `TS7016: Could not find a declaration file for module '…'`** — Render sets `NODE_ENV=production` before `npm ci` runs, so devDependencies (including `typescript` and all `@types/*`) get skipped. Build command must be `npm ci --include=dev && npm run build && npm prune --omit=dev` — install-with-dev, build, prune back. Already set in [`render.yaml`](./render.yaml).
+**Build fails with `TS7016: Could not find a declaration file for module '…'`** - Render sets `NODE_ENV=production` before `npm ci` runs, so devDependencies (including `typescript` and all `@types/*`) get skipped. Build command must be `npm ci --include=dev && npm run build && npm prune --omit=dev` - install-with-dev, build, prune back. Already set in [`render.yaml`](./render.yaml).
 
-**Migrations fail on first deploy** — the pooled Neon URL sometimes rejects the initial CREATE TABLE burst. Switch to the direct (`-pooler` removed) URL temporarily just for the first migration, then switch back.
+**Migrations fail on first deploy** - the pooled Neon URL sometimes rejects the initial CREATE TABLE burst. Switch to the direct (`-pooler` removed) URL temporarily just for the first migration, then switch back.
 
-**Redis "READONLY" or NOSCRIPT errors** — you picked Upstash's REST-only tier. Recreate as a standard Redis database (protocol-native).
+**Redis "READONLY" or NOSCRIPT errors** - you picked Upstash's REST-only tier. Recreate as a standard Redis database (protocol-native).
 
-**Cron doesn't run** — expected on the free tier; see the note under "Render free tier".
+**Cron doesn't run** - expected on the free tier; see the note under "Render free tier".
